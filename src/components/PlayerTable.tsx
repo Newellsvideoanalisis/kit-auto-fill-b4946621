@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState } from "react";
 import { Player } from "@/types/player";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, ClipboardPaste } from "lucide-react";
+import { Plus, Trash2, Upload } from "lucide-react";
 
 interface PlayerTableProps {
   players: Player[];
@@ -18,13 +18,65 @@ const EMPTY_PLAYER = (): Player => ({
   foot: "",
 });
 
-const POSITIONS = ["Arquero", "Defensor", "Mediocampista", "Delantero"];
-const FEET = ["Derecho", "Zurdo", "Ambidiestro"];
+const POSITIONS = [
+  "Portero",
+  "Defensa central",
+  "Lateral derecho",
+  "Lateral izquierdo",
+  "Pivote",
+  "Mediocentro",
+  "Mediocentro ofensivo",
+  "Mediapunta",
+  "Extremo derecho",
+  "Extremo izquierdo",
+  "Delantero centro",
+];
+const FEET = ["Derecho", "Izquierdo", "Ambidiestro"];
+
+const parseTransfermarktCSV = (text: string): Player[] => {
+  const lines = text.split("\n").filter((l) => l.trim());
+  if (lines.length < 2) return [];
+
+  // Skip header row
+  const dataLines = lines.slice(1);
+  return dataLines.map((line) => {
+    // Parse CSV with quoted fields
+    const cols: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+      } else if (ch === "," && !inQuotes) {
+        cols.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    cols.push(current.trim());
+
+    // Extract birth date - format "01/09/1998 (27)" → "01/09/1998 (27)"
+    const rawDate = cols[5] || "";
+    // Extract height - format "1,84m" → "1,84m"  
+    const rawHeight = cols[7] || "";
+    // Map foot: Izquierdo stays, Derecho stays
+    const rawFoot = cols[8] || "";
+
+    return {
+      id: crypto.randomUUID(),
+      number: cols[0] || "",
+      name: cols[2] || "",
+      birthDate: rawDate,
+      height: rawHeight,
+      position: cols[4] || "",
+      foot: rawFoot,
+    };
+  });
+};
 
 const PlayerTable: React.FC<PlayerTableProps> = ({ players, onPlayersChange }) => {
-  const [pasteMode, setPasteMode] = useState(false);
-  const [pasteText, setPasteText] = useState("");
-
   const addPlayer = () => {
     onPlayersChange([...players, EMPTY_PLAYER()]);
   };
@@ -39,24 +91,21 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ players, onPlayersChange }) =
     );
   };
 
-  const handlePaste = () => {
-    if (!pasteText.trim()) return;
-    const lines = pasteText.trim().split("\n");
-    const newPlayers: Player[] = lines.map((line) => {
-      const cols = line.split("\t");
-      return {
-        id: crypto.randomUUID(),
-        number: cols[0]?.trim() || "",
-        name: cols[1]?.trim() || "",
-        birthDate: cols[2]?.trim() || "",
-        height: cols[3]?.trim() || "",
-        position: cols[4]?.trim() || "",
-        foot: cols[5]?.trim() || "",
-      };
-    });
-    onPlayersChange([...players, ...newPlayers]);
-    setPasteText("");
-    setPasteMode(false);
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      if (!text) return;
+      const newPlayers = parseTransfermarktCSV(text);
+      if (newPlayers.length > 0) {
+        onPlayersChange([...players, ...newPlayers]);
+      }
+    };
+    reader.readAsText(file, "utf-8");
+    // Reset input so same file can be uploaded again
+    e.target.value = "";
   };
 
   const inputClass =
@@ -69,15 +118,20 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ players, onPlayersChange }) =
           PLANTILLA DE JUGADORES
         </h2>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPasteMode(!pasteMode)}
-            className="gap-1.5"
-          >
-            <ClipboardPaste className="w-4 h-4" />
-            Pegar desde planilla
-          </Button>
+          <label>
+            <input
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer" asChild>
+              <span>
+                <Upload className="w-4 h-4" />
+                Importar CSV
+              </span>
+            </Button>
+          </label>
           <Button size="sm" onClick={addPlayer} className="gap-1.5">
             <Plus className="w-4 h-4" />
             Agregar
@@ -85,33 +139,16 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ players, onPlayersChange }) =
         </div>
       </div>
 
-      {pasteMode && (
-        <div className="bg-card border border-border rounded-lg p-4 space-y-2">
-          <p className="text-sm text-muted-foreground">
-            Pegá datos desde una planilla (Nº, Nombre, Fecha Nac., Altura, Posición, Pie) separados por tabs:
-          </p>
-          <textarea
-            value={pasteText}
-            onChange={(e) => setPasteText(e.target.value)}
-            className="w-full h-32 bg-secondary border border-border rounded p-3 text-sm text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder={"1\tGonzález\t15/03/1998\t1.85\tArquero\tDerecho\n4\tPérez\t22/07/2000\t1.78\tDefensor\tZurdo"}
-          />
-          <Button size="sm" onClick={handlePaste}>
-            Importar datos
-          </Button>
-        </div>
-      )}
-
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-primary text-primary-foreground">
               <th className="px-3 py-2 text-left font-display text-base tracking-wider">Nº</th>
               <th className="px-3 py-2 text-left font-display text-base tracking-wider">NOMBRE</th>
-              <th className="px-3 py-2 text-left font-display text-base tracking-wider">FECHA NAC.</th>
-              <th className="px-3 py-2 text-left font-display text-base tracking-wider">ALTURA</th>
               <th className="px-3 py-2 text-left font-display text-base tracking-wider">POSICIÓN</th>
               <th className="px-3 py-2 text-left font-display text-base tracking-wider">PIE</th>
+              <th className="px-3 py-2 text-left font-display text-base tracking-wider">ALTURA</th>
+              <th className="px-3 py-2 text-left font-display text-base tracking-wider">EDAD</th>
               <th className="px-3 py-2 w-10"></th>
             </tr>
           </thead>
@@ -141,24 +178,6 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ players, onPlayersChange }) =
                   />
                 </td>
                 <td className="px-2 py-1">
-                  <input
-                    className={inputClass}
-                    style={{ width: 110 }}
-                    value={player.birthDate}
-                    onChange={(e) => updatePlayer(player.id, "birthDate", e.target.value)}
-                    placeholder="dd/mm/aaaa"
-                  />
-                </td>
-                <td className="px-2 py-1">
-                  <input
-                    className={inputClass}
-                    style={{ width: 70 }}
-                    value={player.height}
-                    onChange={(e) => updatePlayer(player.id, "height", e.target.value)}
-                    placeholder="1.80"
-                  />
-                </td>
-                <td className="px-2 py-1">
                   <select
                     className={inputClass}
                     value={player.position}
@@ -183,6 +202,24 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ players, onPlayersChange }) =
                   </select>
                 </td>
                 <td className="px-2 py-1">
+                  <input
+                    className={inputClass}
+                    style={{ width: 70 }}
+                    value={player.height}
+                    onChange={(e) => updatePlayer(player.id, "height", e.target.value)}
+                    placeholder="1.80"
+                  />
+                </td>
+                <td className="px-2 py-1">
+                  <input
+                    className={inputClass}
+                    style={{ width: 160 }}
+                    value={player.birthDate}
+                    onChange={(e) => updatePlayer(player.id, "birthDate", e.target.value)}
+                    placeholder="01/09/1998 (27)"
+                  />
+                </td>
+                <td className="px-2 py-1">
                   <button
                     onClick={() => removePlayer(player.id)}
                     className="p-1 text-muted-foreground hover:text-destructive transition-colors"
@@ -196,7 +233,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ players, onPlayersChange }) =
         </table>
         {players.length === 0 && (
           <div className="text-center py-8 text-muted-foreground text-sm">
-            No hay jugadores. Agregá jugadores o pegá desde una planilla.
+            No hay jugadores. Importá un CSV de Transfermarkt o agregá manualmente.
           </div>
         )}
       </div>
