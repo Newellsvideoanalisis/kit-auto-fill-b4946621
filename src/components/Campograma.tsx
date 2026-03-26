@@ -9,8 +9,33 @@ interface CampogramaProps {
   players: Player[];
 }
 
-const FIELD_W = 900;
-const FIELD_H = 600;
+const FIELD_W = 1200;
+const FIELD_H = 820;
+
+// Position zones matching the Keynote layout (top to bottom)
+const ZONES = [
+  { label: "GK", y: 0, h: 80, color: "rgba(255,255,255,0.95)", textColor: "#333" },
+  { label: "DEFENSA CENTRAL", y: 80, h: 90, color: "rgba(255,200,200,0.4)", textColor: "#666" },
+  { label: "MEDIO CENTRO CONTENCIÓN", y: 170, h: 90, color: "rgba(200,255,200,0.35)", textColor: "#666" },
+  { label: "MEDIO CENTRO MIXTO", y: 260, h: 80, color: "rgba(200,255,200,0.25)", textColor: "#666" },
+  { label: "INTERIOR DERECHO", y: 340, h: 70, color: "rgba(180,220,210,0.35)", textColor: "#666", align: "left" as const },
+  { label: "INTERIOR IZQUIERDO", y: 340, h: 70, color: "rgba(180,220,210,0.35)", textColor: "#666", align: "right" as const },
+  { label: "MEDIA PUNTA", y: 410, h: 70, color: "rgba(180,220,210,0.3)", textColor: "#666" },
+  { label: "DELANTERO CENTRO", y: 480, h: 80, color: "rgba(255,240,200,0.4)", textColor: "#666" },
+];
+
+const SIDE_ZONES = [
+  { label: "LATERAL\nDERECHO", y: 80, h: 90, side: "left" as const },
+  { label: "LATERAL\nIZQUIERDO", y: 80, h: 90, side: "right" as const },
+  { label: "BANDA", y: 260, h: 80, side: "left" as const },
+  { label: "BANDA", y: 260, h: 80, side: "right" as const },
+  { label: "EXTREMO\nDERECHO", y: 410, h: 70, side: "left" as const },
+  { label: "EXTREMO\nIZQUIERDO", y: 410, h: 70, side: "right" as const },
+];
+
+const MAIN_AREA_LEFT = 160;
+const MAIN_AREA_RIGHT = FIELD_W - 160;
+const FIELD_CONTENT_H = 560;
 
 const Campograma: React.FC<CampogramaProps> = ({ players }) => {
   const fieldRef = useRef<HTMLDivElement>(null);
@@ -18,7 +43,6 @@ const Campograma: React.FC<CampogramaProps> = ({ players }) => {
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
-  // Sync players into positioned list
   useEffect(() => {
     setPositioned((prev) => {
       const existing = new Map(prev.map((p) => [p.id, p]));
@@ -27,8 +51,10 @@ const Campograma: React.FC<CampogramaProps> = ({ players }) => {
           const old = existing.get(p.id)!;
           return { ...p, x: old.x, y: old.y };
         }
-        // Default position: sidebar area on the right
-        return { ...p, x: FIELD_W - 100, y: 30 + i * 85 };
+        // Stack new players on the left side
+        const col = Math.floor(i / 8);
+        const row = i % 8;
+        return { ...p, x: 10 + col * 80, y: 90 + row * 65 };
       });
     });
   }, [players]);
@@ -53,8 +79,8 @@ const Campograma: React.FC<CampogramaProps> = ({ players }) => {
     (e: React.MouseEvent) => {
       if (!dragging || !fieldRef.current) return;
       const rect = fieldRef.current.getBoundingClientRect();
-      const x = Math.max(0, Math.min(FIELD_W - 70, e.clientX - rect.left - dragOffset.x));
-      const y = Math.max(0, Math.min(FIELD_H - 80, e.clientY - rect.top - dragOffset.y));
+      const x = Math.max(0, Math.min(FIELD_W - 80, e.clientX - rect.left - dragOffset.x));
+      const y = Math.max(0, Math.min(FIELD_H - 90, e.clientY - rect.top - dragOffset.y));
       setPositioned((prev) =>
         prev.map((p) => (p.id === dragging ? { ...p, x, y } : p))
       );
@@ -68,7 +94,11 @@ const Campograma: React.FC<CampogramaProps> = ({ players }) => {
 
   const resetPositions = () => {
     setPositioned((prev) =>
-      prev.map((p, i) => ({ ...p, x: FIELD_W - 100, y: 30 + i * 85 }))
+      prev.map((p, i) => {
+        const col = Math.floor(i / 8);
+        const row = i % 8;
+        return { ...p, x: 10 + col * 80, y: 90 + row * 65 };
+      })
     );
   };
 
@@ -77,7 +107,7 @@ const Campograma: React.FC<CampogramaProps> = ({ players }) => {
     try {
       const dataUrl = await toPng(fieldRef.current, {
         pixelRatio: 2,
-        backgroundColor: "hsl(220, 15%, 10%)",
+        backgroundColor: "#ffffff",
       });
       const link = document.createElement("a");
       link.download = "campograma.png";
@@ -109,106 +139,149 @@ const Campograma: React.FC<CampogramaProps> = ({ players }) => {
       <div className="overflow-auto rounded-lg border border-border">
         <div
           ref={fieldRef}
-          className="relative cursor-crosshair select-none"
+          className="relative select-none"
           style={{
             width: FIELD_W,
             height: FIELD_H,
-            background: "linear-gradient(180deg, hsl(120, 40%, 28%) 0%, hsl(120, 45%, 32%) 50%, hsl(120, 40%, 28%) 100%)",
+            background: "#f5f5f5",
           }}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         >
-          {/* Field markings */}
-          <svg
-            className="absolute inset-0 pointer-events-none"
-            width={FIELD_W}
-            height={FIELD_H}
-            viewBox={`0 0 ${FIELD_W} ${FIELD_H}`}
-          >
-            {/* Field outline */}
-            <rect
-              x={40} y={20} width={FIELD_W - 80} height={FIELD_H - 40}
-              fill="none" stroke="hsla(0,0%,100%,0.35)" strokeWidth={2}
-            />
-            {/* Center line */}
-            <line
-              x1={FIELD_W / 2} y1={20} x2={FIELD_W / 2} y2={FIELD_H - 20}
-              stroke="hsla(0,0%,100%,0.35)" strokeWidth={2}
-            />
-            {/* Center circle */}
-            <circle
-              cx={FIELD_W / 2} cy={FIELD_H / 2} r={60}
-              fill="none" stroke="hsla(0,0%,100%,0.35)" strokeWidth={2}
-            />
-            {/* Center dot */}
-            <circle cx={FIELD_W / 2} cy={FIELD_H / 2} r={3} fill="hsla(0,0%,100%,0.5)" />
-            {/* Left penalty area */}
-            <rect
-              x={40} y={FIELD_H / 2 - 110} width={120} height={220}
-              fill="none" stroke="hsla(0,0%,100%,0.35)" strokeWidth={2}
-            />
-            {/* Left goal area */}
-            <rect
-              x={40} y={FIELD_H / 2 - 50} width={45} height={100}
-              fill="none" stroke="hsla(0,0%,100%,0.35)" strokeWidth={2}
-            />
-            {/* Right penalty area */}
-            <rect
-              x={FIELD_W - 160} y={FIELD_H / 2 - 110} width={120} height={220}
-              fill="none" stroke="hsla(0,0%,100%,0.35)" strokeWidth={2}
-            />
-            {/* Right goal area */}
-            <rect
-              x={FIELD_W - 85} y={FIELD_H / 2 - 50} width={45} height={100}
-              fill="none" stroke="hsla(0,0%,100%,0.35)" strokeWidth={2}
-            />
-            {/* Left goal */}
-            <rect
-              x={25} y={FIELD_H / 2 - 30} width={15} height={60}
-              fill="none" stroke="hsla(0,0%,100%,0.3)" strokeWidth={1.5}
-            />
-            {/* Right goal */}
-            <rect
-              x={FIELD_W - 40} y={FIELD_H / 2 - 30} width={15} height={60}
-              fill="none" stroke="hsla(0,0%,100%,0.3)" strokeWidth={1.5}
-            />
-            {/* Field stripes */}
-            {Array.from({ length: 9 }, (_, i) => (
-              <rect
-                key={i}
-                x={40 + i * ((FIELD_W - 80) / 9)}
-                y={20}
-                width={(FIELD_W - 80) / 9}
-                height={FIELD_H - 40}
-                fill={i % 2 === 0 ? "hsla(120,45%,30%,0.15)" : "transparent"}
-              />
-            ))}
-          </svg>
-
-          {/* Title overlay */}
+          {/* Header bar */}
           <div
-            className="absolute top-2 left-3 font-display text-lg tracking-widest"
-            style={{ color: "hsla(0,0%,100%,0.6)" }}
+            className="absolute top-0 left-0 right-0 flex items-center justify-between px-4"
+            style={{
+              height: 50,
+              background: "linear-gradient(135deg, #1a1a1a 60%, #cc0000 100%)",
+            }}
           >
-            PLANTEL POR POSICIONES
+            <div className="font-display text-white text-2xl tracking-widest italic">
+              <span className="font-bold">PLANTEL</span>
+              <span className="ml-4 font-normal">POR POSICIONES</span>
+            </div>
           </div>
+
+          {/* Main field area */}
+          <div
+            className="absolute"
+            style={{
+              top: 55,
+              left: MAIN_AREA_LEFT,
+              right: MAIN_AREA_LEFT,
+              height: FIELD_CONTENT_H,
+              border: "2px solid #999",
+              background: "#fff",
+            }}
+          >
+            {/* Zone bands */}
+            {ZONES.map((zone, i) => {
+              const zoneTop = (zone.y / FIELD_CONTENT_H) * 100;
+              const zoneH = (zone.h / FIELD_CONTENT_H) * 100;
+              const isHalf = zone.align === "left" || zone.align === "right";
+              return (
+                <div
+                  key={i}
+                  className="absolute flex items-center justify-center"
+                  style={{
+                    top: `${zoneTop}%`,
+                    height: `${zoneH}%`,
+                    left: isHalf && zone.align === "right" ? "50%" : 0,
+                    right: isHalf && zone.align === "left" ? "50%" : 0,
+                    width: isHalf ? "50%" : "100%",
+                    background: zone.color,
+                    borderBottom: "1px solid rgba(0,0,0,0.08)",
+                  }}
+                >
+                  <span
+                    className="font-display tracking-wider text-center"
+                    style={{
+                      fontSize: 18,
+                      color: zone.textColor,
+                      opacity: 0.7,
+                    }}
+                  >
+                    {zone.label}
+                  </span>
+                </div>
+              );
+            })}
+
+            {/* Goal arc at top */}
+            <div
+              className="absolute"
+              style={{
+                top: -2,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: 180,
+                height: 50,
+                borderBottom: "2px solid #999",
+                borderLeft: "2px solid #999",
+                borderRight: "2px solid #999",
+                borderRadius: "0 0 50% 50%",
+              }}
+            />
+
+            {/* Goal arc at bottom */}
+            <div
+              className="absolute"
+              style={{
+                bottom: -2,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: 180,
+                height: 50,
+                borderTop: "2px solid #999",
+                borderLeft: "2px solid #999",
+                borderRight: "2px solid #999",
+                borderRadius: "50% 50% 0 0",
+              }}
+            />
+          </div>
+
+          {/* Side zone labels */}
+          {SIDE_ZONES.map((sz, i) => {
+            const top = 55 + (sz.y / FIELD_CONTENT_H) * FIELD_CONTENT_H;
+            const height = (sz.h / FIELD_CONTENT_H) * FIELD_CONTENT_H;
+            return (
+              <div
+                key={i}
+                className="absolute flex items-center justify-center"
+                style={{
+                  top,
+                  height,
+                  left: sz.side === "left" ? 0 : FIELD_W - MAIN_AREA_LEFT,
+                  width: MAIN_AREA_LEFT,
+                  background: "rgba(200,200,200,0.2)",
+                }}
+              >
+                <span
+                  className="font-display tracking-wider text-center whitespace-pre-line"
+                  style={{ fontSize: 16, color: "#555" }}
+                >
+                  {sz.label}
+                </span>
+              </div>
+            );
+          })}
 
           {/* Draggable jerseys */}
           {positioned.map((player) => (
             <div
               key={player.id}
-              className="absolute transition-shadow"
+              className="absolute"
               style={{
                 left: player.x,
                 top: player.y,
                 cursor: dragging === player.id ? "grabbing" : "grab",
                 zIndex: dragging === player.id ? 50 : 10,
-                filter: dragging === player.id ? "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" : "none",
+                filter: dragging === player.id ? "drop-shadow(0 4px 12px rgba(0,0,0,0.4))" : "none",
               }}
               onMouseDown={(e) => handleMouseDown(e, player.id)}
             >
-              <JerseyCard player={player} variant="dark" size="sm" />
+              <JerseyCard player={player} />
             </div>
           ))}
         </div>

@@ -3,95 +3,128 @@ import { Player } from "@/types/player";
 
 interface JerseyCardProps {
   player: Player;
-  variant?: "dark" | "light";
-  size?: "sm" | "md";
 }
 
-const JerseyCard: React.FC<JerseyCardProps> = ({ player, variant = "dark", size = "md" }) => {
-  const isSmall = size === "sm";
-  const isDark = variant === "dark";
+const JerseyCard: React.FC<JerseyCardProps> = ({ player }) => {
+  // Extract just the age part from "01/09/1998 (27)" → "1998"
+  const birthYear = player.birthDate?.match(/(\d{4})/)?.[1] || "—";
+  const height = player.height?.replace("m", " Cm").replace(",", ".") || "—";
+  const lastName = player.name?.split(" ").pop()?.toUpperCase() || "—";
+  const foot = player.foot?.toUpperCase() || "—";
 
   return (
-    <div className="flex flex-col items-center select-none" style={{ width: isSmall ? 70 : 90 }}>
-      {/* Info bubbles */}
+    <div className="flex flex-col items-center select-none" style={{ width: 75 }}>
+      {/* Info bubbles - birth year and height */}
       <div className="flex gap-1 mb-0.5">
         <span
-          className="rounded-full text-center font-body font-semibold leading-none"
+          className="rounded text-center font-body font-bold leading-none"
           style={{
-            fontSize: isSmall ? 6 : 7,
-            padding: isSmall ? "2px 4px" : "2px 5px",
-            backgroundColor: isDark ? "hsl(var(--foreground))" : "hsl(var(--jersey-dark))",
-            color: isDark ? "hsl(var(--jersey-dark))" : "hsl(var(--foreground))",
+            fontSize: 7,
+            padding: "2px 4px",
+            backgroundColor: "#fff",
+            color: "#333",
+            border: "1px solid #ccc",
+            minWidth: 20,
           }}
         >
-          {player.birthDate || "—"}
+          {birthYear}
         </span>
         <span
-          className="rounded-full text-center font-body font-semibold leading-none"
+          className="rounded text-center font-body font-bold leading-none"
           style={{
-            fontSize: isSmall ? 6 : 7,
-            padding: isSmall ? "2px 4px" : "2px 5px",
-            backgroundColor: isDark ? "hsl(var(--foreground))" : "hsl(var(--jersey-dark))",
-            color: isDark ? "hsl(var(--jersey-dark))" : "hsl(var(--foreground))",
+            fontSize: 7,
+            padding: "2px 4px",
+            backgroundColor: "#fff",
+            color: "#333",
+            border: "1px solid #ccc",
+            minWidth: 20,
           }}
         >
-          {player.height || "—"}
+          {height}
         </span>
       </div>
 
-      {/* Jersey SVG */}
-      <div className="relative" style={{ width: isSmall ? 50 : 65, height: isSmall ? 40 : 52 }}>
-        <svg viewBox="0 0 80 65" className="w-full h-full">
-          {/* Jersey shape */}
+      {/* Jersey SVG - dark crescent/shirt shape like in Keynote */}
+      <div className="relative" style={{ width: 55, height: 35 }}>
+        <svg viewBox="0 0 80 50" className="w-full h-full">
+          {/* Jersey body - dark curved shape */}
           <path
-            d="M15 5 L5 20 L15 25 L15 60 L65 60 L65 25 L75 20 L65 5 L50 10 L40 8 L30 10 Z"
-            fill={isDark ? "hsl(220, 20%, 15%)" : "hsl(0, 0%, 92%)"}
-            stroke={isDark ? "hsl(0, 0%, 40%)" : "hsl(0, 0%, 60%)"}
-            strokeWidth="1"
+            d="M5 40 C5 15, 20 5, 40 8 C60 5, 75 15, 75 40 C65 45, 55 48, 40 48 C25 48, 15 45, 5 40 Z"
+            fill="#1a1a1a"
+            stroke="#333"
+            strokeWidth="0.5"
           />
-          {/* Collar */}
+          {/* Sleeve curves */}
           <path
-            d="M30 10 Q40 15 50 10"
+            d="M8 35 C3 25, 8 15, 18 12"
             fill="none"
-            stroke={isDark ? "hsl(0, 0%, 40%)" : "hsl(0, 0%, 60%)"}
-            strokeWidth="1"
+            stroke="#333"
+            strokeWidth="0.5"
+          />
+          <path
+            d="M72 35 C77 25, 72 15, 62 12"
+            fill="none"
+            stroke="#333"
+            strokeWidth="0.5"
           />
         </svg>
-        {/* Number */}
+        {/* Number centered on jersey */}
         <span
           className="absolute inset-0 flex items-center justify-center font-display font-bold"
           style={{
-            fontSize: isSmall ? 18 : 24,
-            color: isDark ? "hsl(0, 0%, 95%)" : "hsl(220, 20%, 15%)",
-            paddingTop: isSmall ? 4 : 6,
+            fontSize: 18,
+            color: "#fff",
+            paddingTop: 2,
+            textShadow: "0 1px 2px rgba(0,0,0,0.5)",
           }}
         >
-          {player.number}
+          {player.number || "—"}
         </span>
       </div>
 
-      {/* Name */}
-      <span
-        className="font-body font-bold text-center leading-tight mt-0.5 uppercase"
+      {/* Name banner - dark background like Keynote */}
+      <div
+        className="flex items-center justify-center"
         style={{
-          fontSize: isSmall ? 6 : 7,
-          color: isDark ? "hsl(0, 0%, 95%)" : "hsl(220, 20%, 15%)",
-          maxWidth: isSmall ? 65 : 85,
+          background: "#1a5e1a",
+          padding: "2px 6px",
+          marginTop: -2,
+          minWidth: 60,
+          maxWidth: 75,
         }}
       >
-        {player.name || "NOMBRE"}
-      </span>
+        <span
+          className="font-display font-bold text-center leading-tight uppercase truncate"
+          style={{
+            fontSize: 7,
+            color: "#fff",
+            letterSpacing: "0.5px",
+          }}
+        >
+          {lastName}
+        </span>
+      </div>
 
-      {/* Foot */}
-      <span
-        className="font-body text-center leading-tight uppercase"
+      {/* Foot label */}
+      <div
+        className="flex items-center justify-center"
         style={{
-          fontSize: isSmall ? 5 : 6,
-          color: "hsl(var(--muted-foreground))",
+          background: "#1a5e1a",
+          padding: "1px 6px",
+          marginTop: 1,
+          minWidth: 40,
         }}
       >
-        {player.foot || "—"}
-      </span>
+        <span
+          className="font-body text-center leading-tight uppercase"
+          style={{
+            fontSize: 5.5,
+            color: "#ccc",
+          }}
+        >
+          {foot}
+        </span>
+      </div>
     </div>
   );
 };
