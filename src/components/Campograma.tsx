@@ -36,7 +36,7 @@ const POSITION_LABELS = [
   { label: "INTERIOR\nIZQUIERDO", x: 70, y: 60 },
 ];
 
-const Campograma: React.FC<CampogramaProps> = ({ players }) => {
+const Campograma: React.FC<CampogramaProps> = ({ players, color1 = "#0f3460", color2 = "#1a1a2e" }) => {
   const fieldRef = useRef<HTMLDivElement>(null);
   const [positioned, setPositioned] = useState<PositionedPlayer[]>([]);
   const [dragging, setDragging] = useState<string | null>(null);
