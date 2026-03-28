@@ -96,7 +96,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       </text>
 
       {/* Height — top right — 14pt */}
-      <text fill={ringTextColor} fontSize="14" fontFamily="'Inter', sans-serif" fontWeight="700">
+      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topRightArcId}`} startOffset="50%" textAnchor="middle">
           {heightDisplay}
         </textPath>
