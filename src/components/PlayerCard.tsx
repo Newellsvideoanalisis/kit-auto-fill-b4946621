@@ -89,7 +89,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       </defs>
 
       {/* Birth year — top left — 11pt */}
-      <text fill={ringTextColor} fontSize="14" fontFamily="'Inter', sans-serif" fontWeight="700">
+      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topLeftArcId}`} startOffset="50%" textAnchor="middle">
           {birthYear}
         </textPath>
