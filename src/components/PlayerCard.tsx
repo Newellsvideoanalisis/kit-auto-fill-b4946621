@@ -15,8 +15,8 @@ const CX = VB_W / 2;
 const CY = 60;
 const OUTER_R = 56;
 const INNER_R = 36;
-const TOP_TEXT_R = 39;
-const BOTTOM_TEXT_R = 45;
+const TOP_TEXT_R = 46;
+const BOTTOM_TEXT_R = 46;
 
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
@@ -49,8 +49,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const bottomArcId = `arc-bot-${id}`;
 
   const nameY = CY + OUTER_R - 10;
-  const nameH = 24;
-  const nameW = 96;
+  const nameH = 28;
+  const nameW = 100;
 
   return (
     <svg
@@ -88,21 +88,21 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       </defs>
 
       {/* Birth year — top left — 11pt */}
-      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      <text fill={ringTextColor} fontSize="14" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topLeftArcId}`} startOffset="50%" textAnchor="middle">
           {birthYear}
         </textPath>
       </text>
 
-      {/* Height — top right — 11pt */}
-      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Height — top right — 14pt */}
+      <text fill={ringTextColor} fontSize="14" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topRightArcId}`} startOffset="50%" textAnchor="middle">
           {heightDisplay}
         </textPath>
       </text>
 
-      {/* Foot — bottom — 11pt */}
-      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Foot — bottom — 14pt */}
+      <text fill={ringTextColor} fontSize="14" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${bottomArcId}`} startOffset="50%" textAnchor="middle">
           {foot}
         </textPath>
@@ -125,7 +125,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         textAnchor="middle"
         dominantBaseline="central"
         fill={centerTextColor}
-        fontSize="16"
+        fontSize="19"
         fontWeight="bold"
         fontFamily="'Bebas Neue', sans-serif"
         letterSpacing="0.8"
