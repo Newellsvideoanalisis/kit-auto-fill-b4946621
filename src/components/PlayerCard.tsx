@@ -49,9 +49,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const topRightArcId = `arc-tr-${id}`;
   const bottomArcId = `arc-bot-${id}`;
 
-  const nameY = CY + OUTER_R - 10;
-  const nameH = 28;
-  const nameW = 100;
+  const nameY = CY + OUTER_R - 8;
+  const nameH = 24;
+  const nameW = 95;
 
   return (
     <svg
