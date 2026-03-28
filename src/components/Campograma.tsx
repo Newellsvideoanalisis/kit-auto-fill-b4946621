@@ -7,6 +7,8 @@ import { Download, RotateCcw } from "lucide-react";
 
 interface CampogramaProps {
   players: Player[];
+  color1?: string;
+  color2?: string;
 }
 
 const FIELD_W = 1000;
