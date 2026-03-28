@@ -15,8 +15,8 @@ const CX = VB_W / 2;
 const CY = 60;
 const OUTER_R = 56;
 const INNER_R = 36;
-const TOP_TEXT_R = 39;
-const BOTTOM_TEXT_R = 45;
+const TOP_TEXT_R = 46;
+const BOTTOM_TEXT_R = 46;
 
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
