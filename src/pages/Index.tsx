@@ -30,10 +30,14 @@ const Index: React.FC = () => {
     const cards = container.querySelectorAll<HTMLDivElement>("[data-player-card]");
     const zip = new JSZip();
 
+    // 145pt x 149pt → 145*1.333 ≈ 193px, 149*1.333 ≈ 199px at 1x
+    const exportW = 193;
+    const exportH = 199;
+
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
       try {
-        const dataUrl = await toPng(card, { pixelRatio: 3, backgroundColor: "transparent" });
+        const dataUrl = await toPng(card, { pixelRatio: 2, backgroundColor: "transparent", width: exportW, height: exportH });
         const res = await fetch(dataUrl);
         const blob = await res.blob();
         const name = players[i]?.name?.split(" ").pop() || `jugador_${i + 1}`;
