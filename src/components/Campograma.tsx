@@ -244,7 +244,7 @@ const Campograma: React.FC<CampogramaProps> = ({ players, color1 = "#0f3460", co
               }}
               onMouseDown={(e) => handleMouseDown(e, player.id)}
             >
-              <PlayerCard player={player} />
+              <PlayerCard player={player} color1={color1} color2={color2} />
             </div>
           ))}
         </div>
