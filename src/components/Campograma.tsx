@@ -7,6 +7,8 @@ import { Download, RotateCcw } from "lucide-react";
 
 interface CampogramaProps {
   players: Player[];
+  color1?: string;
+  color2?: string;
 }
 
 const FIELD_W = 1000;
@@ -34,7 +36,7 @@ const POSITION_LABELS = [
   { label: "INTERIOR\nIZQUIERDO", x: 70, y: 60 },
 ];
 
-const Campograma: React.FC<CampogramaProps> = ({ players }) => {
+const Campograma: React.FC<CampogramaProps> = ({ players, color1 = "#0f3460", color2 = "#1a1a2e" }) => {
   const fieldRef = useRef<HTMLDivElement>(null);
   const [positioned, setPositioned] = useState<PositionedPlayer[]>([]);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -242,7 +244,7 @@ const Campograma: React.FC<CampogramaProps> = ({ players }) => {
               }}
               onMouseDown={(e) => handleMouseDown(e, player.id)}
             >
-              <PlayerCard player={player} />
+              <PlayerCard player={player} color1={color1} color2={color2} />
             </div>
           ))}
         </div>
