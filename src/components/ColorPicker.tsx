@@ -7,10 +7,20 @@ interface ColorPickerProps {
   onColor2Change: (c: string) => void;
 }
 
-const PRESETS = [
+const CENTER_PRESETS = [
   "#0f3460", "#1a1a2e", "#e94560", "#16213e",
   "#1b9e3e", "#fff200", "#000000", "#ffffff",
   "#c70039", "#2e86de", "#ff6348", "#6c5ce7",
+  "#2c3e50", "#8e44ad", "#d35400", "#1abc9c",
+  "#34495e", "#e74c3c",
+];
+
+const RING_PRESETS = [
+  "#1a1a2e", "#0f3460", "#e94560", "#16213e",
+  "#000000", "#ffffff", "#c70039", "#2e86de",
+  "#ff6348", "#6c5ce7", "#1b9e3e", "#fff200",
+  "#2c3e50", "#8e44ad", "#d35400", "#1abc9c",
+  "#34495e", "#e74c3c",
 ];
 
 const ColorPicker: React.FC<ColorPickerProps> = ({ color1, color2, onColor1Change, onColor2Change }) => {
@@ -19,8 +29,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color1, color2, onColor1Chang
       <div className="flex items-center gap-2">
         <span className="text-sm font-display text-foreground tracking-wider">CENTRO:</span>
         <input type="color" value={color1} onChange={(e) => onColor1Change(e.target.value)} className="w-8 h-8 cursor-pointer rounded border border-border" />
-        <div className="flex gap-1">
-          {PRESETS.slice(0, 6).map((c) => (
+        <div className="flex gap-1 flex-wrap max-w-[200px]">
+          {CENTER_PRESETS.map((c) => (
             <button key={c} onClick={() => onColor1Change(c)} className="w-5 h-5 rounded-sm border border-border" style={{ background: c }} />
           ))}
         </div>
@@ -28,8 +38,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color1, color2, onColor1Chang
       <div className="flex items-center gap-2">
         <span className="text-sm font-display text-foreground tracking-wider">ANILLO:</span>
         <input type="color" value={color2} onChange={(e) => onColor2Change(e.target.value)} className="w-8 h-8 cursor-pointer rounded border border-border" />
-        <div className="flex gap-1">
-          {PRESETS.slice(6).map((c) => (
+        <div className="flex gap-1 flex-wrap max-w-[200px]">
+          {RING_PRESETS.map((c) => (
             <button key={c} onClick={() => onColor2Change(c)} className="w-5 h-5 rounded-sm border border-border" style={{ background: c }} />
           ))}
         </div>

@@ -5,14 +5,25 @@ interface PlayerCardProps {
   player: Player;
   color1?: string; // inner circle / number bg
   color2?: string; // outer ring
+  exportMode?: boolean; // when true, use pt-based sizes
 }
 
-const OUTER_R = 44;
-const INNER_R = 28;
+// 145pt x 149pt export size. 1pt ≈ 1.333px, but we work in a viewBox so it scales.
+const OUTER_R = 54;
+const INNER_R = 34;
 const MID_R = (OUTER_R + INNER_R) / 2;
 const CARD_SIZE = OUTER_R * 2 + 6;
 const CX = CARD_SIZE / 2;
 const CY = CARD_SIZE / 2;
+
+function getContrastColor(hex: string): string {
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.55 ? "#000000" : "#ffffff";
+}
 
 const PlayerCard: React.FC<PlayerCardProps> = ({
   player,
@@ -26,12 +37,15 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const lastName = player.name?.split(" ").pop()?.toUpperCase() || "—";
   const number = player.number || "—";
 
+  const ringTextColor = getContrastColor(color2);
+  const centerTextColor = getContrastColor(color1);
+
   const topLeftArcId = `arc-tl-${player.id}`;
   const topRightArcId = `arc-tr-${player.id}`;
-  const topCenterArcId = `arc-tc-${player.id}`;
+  const bottomArcId = `arc-bot-${player.id}`;
 
   return (
-    <div className="flex flex-col items-center select-none" style={{ width: 100 }}>
+    <div className="flex flex-col items-center select-none" style={{ width: 120 }}>
       <svg
         width={CARD_SIZE}
         height={CARD_SIZE}
@@ -43,14 +57,14 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         {/* Inner circle (number bg) */}
         <circle cx={CX} cy={CY} r={INNER_R} fill={color1} stroke="#666" strokeWidth="0.5" />
 
-        {/* Number in center - large */}
+        {/* Number in center — 33pt */}
         <text
           x={CX}
           y={CY + 2}
           textAnchor="middle"
           dominantBaseline="central"
-          fill="#fff"
-          fontSize="26"
+          fill={centerTextColor}
+          fontSize="33"
           fontWeight="bold"
           fontFamily="'Bebas Neue', sans-serif"
           letterSpacing="1.5"
@@ -62,54 +76,54 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
           {/* Top-left arc for birth year */}
           <path
             id={topLeftArcId}
-            d={describeArc(CX, CY, MID_R, 210, 265)}
+            d={describeArc(CX, CY, MID_R, 210, 270)}
             fill="none"
           />
           {/* Top-right arc for height */}
           <path
             id={topRightArcId}
-            d={describeArc(CX, CY, MID_R, 275, 330)}
+            d={describeArc(CX, CY, MID_R, 270, 330)}
             fill="none"
           />
-          {/* Top-center arc for foot */}
+          {/* Bottom arc for foot */}
           <path
-            id={topCenterArcId}
-            d={describeArc(CX, CY, MID_R, 255, 285)}
+            id={bottomArcId}
+            d={describeArc(CX, CY, MID_R, 30, 150)}
             fill="none"
           />
         </defs>
 
-        {/* Birth year - top left */}
-        <text fill="#fff" fontSize="9" fontFamily="'Inter', sans-serif" fontWeight="700">
+        {/* Birth year — top left — 11pt */}
+        <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
           <textPath href={`#${topLeftArcId}`} startOffset="50%" textAnchor="middle">
             {birthYear}
           </textPath>
         </text>
 
-        {/* Height - top right */}
-        <text fill="#fff" fontSize="9" fontFamily="'Inter', sans-serif" fontWeight="700">
+        {/* Height — top right — 11pt */}
+        <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
           <textPath href={`#${topRightArcId}`} startOffset="50%" textAnchor="middle">
             {heightDisplay}
           </textPath>
         </text>
 
-        {/* Foot - top center */}
-        <text fill="#ddd" fontSize="7" fontFamily="'Inter', sans-serif" fontWeight="600">
-          <textPath href={`#${topCenterArcId}`} startOffset="50%" textAnchor="middle">
+        {/* Foot — bottom — 11pt */}
+        <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="600">
+          <textPath href={`#${bottomArcId}`} startOffset="50%" textAnchor="middle">
             {foot}
           </textPath>
         </text>
       </svg>
 
-      {/* Name rectangle - overlapping with circle bottom */}
+      {/* Name rectangle — 16pt */}
       <div
         className="flex items-center justify-center"
         style={{
           background: color1,
           padding: "3px 10px",
-          marginTop: -10,
-          minWidth: 65,
-          maxWidth: 100,
+          marginTop: -12,
+          minWidth: 70,
+          maxWidth: 120,
           borderRadius: 3,
           border: "1px solid #555",
           zIndex: 1,
@@ -118,8 +132,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         <span
           className="font-display font-bold text-center leading-tight uppercase truncate"
           style={{
-            fontSize: 9,
-            color: "#fff",
+            fontSize: 16,
+            color: centerTextColor,
             letterSpacing: "0.8px",
           }}
         >
