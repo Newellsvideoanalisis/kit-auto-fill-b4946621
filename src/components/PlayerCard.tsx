@@ -12,10 +12,11 @@ interface PlayerCardProps {
 const VB_W = 145;
 const VB_H = 149;
 const CX = VB_W / 2;
-const CY = 58;
-const OUTER_R = 50;
-const INNER_R = 32;
-const MID_R = 41;
+const CY = 60;
+const OUTER_R = 56;
+const INNER_R = 36;
+const TOP_TEXT_R = 39;
+const BOTTOM_TEXT_R = 45;
 
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
@@ -47,10 +48,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const topRightArcId = `arc-tr-${id}`;
   const bottomArcId = `arc-bot-${id}`;
 
-  // Name rectangle
-  const nameY = CY + OUTER_R - 8;
-  const nameH = 22;
-  const nameW = 90;
+  const nameY = CY + OUTER_R - 10;
+  const nameH = 24;
+  const nameW = 96;
 
   return (
     <svg
@@ -63,28 +63,28 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       {/* Inner circle (number bg) */}
       <circle cx={CX} cy={CY} r={INNER_R} fill={color1} stroke="#666" strokeWidth="0.4" />
 
-      {/* Number in center — 33pt */}
+      {/* Number in center */}
       <text
         x={CX}
-        y={CY + 1}
+        y={CY + 1.5}
         textAnchor="middle"
         dominantBaseline="central"
         fill={centerTextColor}
-        fontSize="33"
+        fontSize="42"
         fontWeight="bold"
         fontFamily="'Bebas Neue', sans-serif"
-        letterSpacing="1.5"
+        letterSpacing="1"
       >
         {number}
       </text>
 
       <defs>
         {/* Top-left arc for birth year (clockwise, reads L-to-R) */}
-        <path id={topLeftArcId} d={describeArc(CX, CY, MID_R, 305, 355)} fill="none" />
+        <path id={topLeftArcId} d={describeArc(CX, CY, TOP_TEXT_R, 300, 350)} fill="none" />
         {/* Top-right arc for height (clockwise, reads L-to-R) */}
-        <path id={topRightArcId} d={describeArc(CX, CY, MID_R, 5, 55)} fill="none" />
+        <path id={topRightArcId} d={describeArc(CX, CY, TOP_TEXT_R, 10, 60)} fill="none" />
         {/* Bottom arc for foot (counterclockwise so text reads L-to-R) */}
-        <path id={bottomArcId} d={describeArcCCW(CX, CY, MID_R, 220, 140)} fill="none" />
+        <path id={bottomArcId} d={describeArcCCW(CX, CY, BOTTOM_TEXT_R, 220, 140)} fill="none" />
       </defs>
 
       {/* Birth year — top left — 11pt */}
@@ -102,7 +102,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       </text>
 
       {/* Foot — bottom — 11pt */}
-      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="600">
+      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${bottomArcId}`} startOffset="50%" textAnchor="middle">
           {foot}
         </textPath>

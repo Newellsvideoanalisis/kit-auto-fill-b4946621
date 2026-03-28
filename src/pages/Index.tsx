@@ -30,11 +30,24 @@ const Index: React.FC = () => {
     const cards = container.querySelectorAll<HTMLDivElement>("[data-player-card]");
     const zip = new JSZip();
 
-    // 145pt x 149pt — render SVG at native pt size, capture at 2x
+    // Export exactly at 145 x 149 px to match the requested Keynote shape size.
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
       try {
-        const dataUrl = await toPng(card, { pixelRatio: 2, backgroundColor: "transparent" });
+        const dataUrl = await toPng(card, {
+          pixelRatio: 1,
+          width: 145,
+          height: 149,
+          canvasWidth: 145,
+          canvasHeight: 149,
+          backgroundColor: "transparent",
+          skipAutoScale: true,
+          style: {
+            width: "145px",
+            height: "149px",
+            margin: "0",
+          },
+        });
         const res = await fetch(dataUrl);
         const blob = await res.blob();
         const name = players[i]?.name?.split(" ").pop() || `jugador_${i + 1}`;
@@ -86,7 +99,7 @@ const Index: React.FC = () => {
       {exporting && (
         <div ref={exportContainerRef} className="fixed -left-[9999px] top-0" style={{ opacity: 0 }}>
           {players.map((p) => (
-            <div key={p.id} data-player-card style={{ display: "inline-block", width: 145, height: 149 }}>
+            <div key={p.id} data-player-card style={{ display: "block", width: 145, height: 149, lineHeight: 0, margin: 0, padding: 0 }}>
               <PlayerCard player={p} color1={color1} color2={color2} width={145} />
             </div>
           ))}
