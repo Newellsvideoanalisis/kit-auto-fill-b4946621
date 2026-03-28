@@ -102,7 +102,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       </text>
 
       {/* Foot — bottom — 14pt */}
-      <text fill={ringTextColor} fontSize="14" fontFamily="'Inter', sans-serif" fontWeight="700">
+      <text fill={foot === "IZQUIERDA" ? "#22c55e" : ringTextColor} fontSize="14" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${bottomArcId}`} startOffset="50%" textAnchor="middle">
           {foot}
         </textPath>
