@@ -3,18 +3,19 @@ import { Player } from "@/types/player";
 
 interface PlayerCardProps {
   player: Player;
-  color1?: string; // inner circle / number bg
-  color2?: string; // outer ring
-  exportMode?: boolean; // when true, use pt-based sizes
+  color1?: string;
+  color2?: string;
+  width?: number; // display width in px, default 120
 }
 
-// 145pt x 149pt export size. 1pt ≈ 1.333px, but we work in a viewBox so it scales.
-const OUTER_R = 54;
-const INNER_R = 34;
-const MID_R = (OUTER_R + INNER_R) / 2;
-const CARD_SIZE = OUTER_R * 2 + 6;
-const CX = CARD_SIZE / 2;
-const CY = CARD_SIZE / 2;
+// ViewBox matches pt dimensions for perfect export
+const VB_W = 145;
+const VB_H = 149;
+const CX = VB_W / 2;
+const CY = 58;
+const OUTER_R = 50;
+const INNER_R = 32;
+const MID_R = 41;
 
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
@@ -29,6 +30,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   player,
   color1 = "#0f3460",
   color2 = "#1a1a2e",
+  width = 120,
 }) => {
   const birthYear = player.birthDate?.match(/(\d{4})/)?.[1] || "—";
   const rawHeight = player.height?.replace("m", "").replace(",", ".").trim() || "";
@@ -40,107 +42,97 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const ringTextColor = getContrastColor(color2);
   const centerTextColor = getContrastColor(color1);
 
-  const topLeftArcId = `arc-tl-${player.id}`;
-  const topRightArcId = `arc-tr-${player.id}`;
-  const bottomArcId = `arc-bot-${player.id}`;
+  const id = player.id;
+  const topLeftArcId = `arc-tl-${id}`;
+  const topRightArcId = `arc-tr-${id}`;
+  const bottomArcId = `arc-bot-${id}`;
+
+  // Name rectangle
+  const nameY = CY + OUTER_R - 8;
+  const nameH = 22;
+  const nameW = 90;
 
   return (
-    <div className="flex flex-col items-center select-none" style={{ width: 120 }}>
-      <svg
-        width={CARD_SIZE}
-        height={CARD_SIZE}
-        viewBox={`0 0 ${CARD_SIZE} ${CARD_SIZE}`}
-        className="overflow-visible"
+    <svg
+      width={width}
+      height={width * (VB_H / VB_W)}
+      viewBox={`0 0 ${VB_W} ${VB_H}`}
+    >
+      {/* Outer circle (ring) */}
+      <circle cx={CX} cy={CY} r={OUTER_R} fill={color2} stroke="#555" strokeWidth="0.8" />
+      {/* Inner circle (number bg) */}
+      <circle cx={CX} cy={CY} r={INNER_R} fill={color1} stroke="#666" strokeWidth="0.4" />
+
+      {/* Number in center — 33pt */}
+      <text
+        x={CX}
+        y={CY + 1}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={centerTextColor}
+        fontSize="33"
+        fontWeight="bold"
+        fontFamily="'Bebas Neue', sans-serif"
+        letterSpacing="1.5"
       >
-        {/* Outer circle (ring) */}
-        <circle cx={CX} cy={CY} r={OUTER_R} fill={color2} stroke="#555" strokeWidth="1" />
-        {/* Inner circle (number bg) */}
-        <circle cx={CX} cy={CY} r={INNER_R} fill={color1} stroke="#666" strokeWidth="0.5" />
+        {number}
+      </text>
 
-        {/* Number in center — 33pt */}
-        <text
-          x={CX}
-          y={CY + 2}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill={centerTextColor}
-          fontSize="33"
-          fontWeight="bold"
-          fontFamily="'Bebas Neue', sans-serif"
-          letterSpacing="1.5"
-        >
-          {number}
-        </text>
+      <defs>
+        {/* Top-left arc for birth year (clockwise, reads L-to-R) */}
+        <path id={topLeftArcId} d={describeArc(CX, CY, MID_R, 305, 355)} fill="none" />
+        {/* Top-right arc for height (clockwise, reads L-to-R) */}
+        <path id={topRightArcId} d={describeArc(CX, CY, MID_R, 5, 55)} fill="none" />
+        {/* Bottom arc for foot (counterclockwise so text reads L-to-R) */}
+        <path id={bottomArcId} d={describeArcCCW(CX, CY, MID_R, 220, 140)} fill="none" />
+      </defs>
 
-        <defs>
-          {/* Top-left arc for birth year */}
-          <path
-            id={topLeftArcId}
-            d={describeArc(CX, CY, MID_R, 210, 270)}
-            fill="none"
-          />
-          {/* Top-right arc for height */}
-          <path
-            id={topRightArcId}
-            d={describeArc(CX, CY, MID_R, 270, 330)}
-            fill="none"
-          />
-          {/* Bottom arc for foot */}
-          <path
-            id={bottomArcId}
-            d={describeArc(CX, CY, MID_R, 30, 150)}
-            fill="none"
-          />
-        </defs>
+      {/* Birth year — top left — 11pt */}
+      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+        <textPath href={`#${topLeftArcId}`} startOffset="50%" textAnchor="middle">
+          {birthYear}
+        </textPath>
+      </text>
 
-        {/* Birth year — top left — 11pt */}
-        <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
-          <textPath href={`#${topLeftArcId}`} startOffset="50%" textAnchor="middle">
-            {birthYear}
-          </textPath>
-        </text>
+      {/* Height — top right — 11pt */}
+      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+        <textPath href={`#${topRightArcId}`} startOffset="50%" textAnchor="middle">
+          {heightDisplay}
+        </textPath>
+      </text>
 
-        {/* Height — top right — 11pt */}
-        <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
-          <textPath href={`#${topRightArcId}`} startOffset="50%" textAnchor="middle">
-            {heightDisplay}
-          </textPath>
-        </text>
+      {/* Foot — bottom — 11pt */}
+      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="600">
+        <textPath href={`#${bottomArcId}`} startOffset="50%" textAnchor="middle">
+          {foot}
+        </textPath>
+      </text>
 
-        {/* Foot — bottom — 11pt */}
-        <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="600">
-          <textPath href={`#${bottomArcId}`} startOffset="50%" textAnchor="middle">
-            {foot}
-          </textPath>
-        </text>
-      </svg>
-
-      {/* Name rectangle — 16pt */}
-      <div
-        className="flex items-center justify-center"
-        style={{
-          background: color1,
-          padding: "3px 10px",
-          marginTop: -12,
-          minWidth: 70,
-          maxWidth: 120,
-          borderRadius: 3,
-          border: "1px solid #555",
-          zIndex: 1,
-        }}
+      {/* Name rectangle */}
+      <rect
+        x={CX - nameW / 2}
+        y={nameY}
+        width={nameW}
+        height={nameH}
+        rx="2"
+        fill={color1}
+        stroke="#555"
+        strokeWidth="0.6"
+      />
+      <text
+        x={CX}
+        y={nameY + nameH / 2 + 1}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={centerTextColor}
+        fontSize="16"
+        fontWeight="bold"
+        fontFamily="'Bebas Neue', sans-serif"
+        letterSpacing="0.8"
       >
-        <span
-          className="font-display font-bold text-center leading-tight uppercase truncate"
-          style={{
-            fontSize: 16,
-            color: centerTextColor,
-            letterSpacing: "0.8px",
-          }}
-        >
-          {lastName}
-        </span>
-      </div>
-    </div>
+        {lastName}
+      </text>
+    </svg>
   );
 };
 
@@ -154,6 +146,14 @@ function describeArc(cx: number, cy: number, r: number, startAngle: number, endA
   const end = polarToCartesian(cx, cy, r, endAngle);
   const largeArc = endAngle - startAngle > 180 ? 1 : 0;
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
+}
+
+function describeArcCCW(cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
+  const start = polarToCartesian(cx, cy, r, startAngle);
+  const end = polarToCartesian(cx, cy, r, endAngle);
+  const angleDiff = (startAngle - endAngle + 360) % 360;
+  const largeArc = angleDiff > 180 ? 1 : 0;
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y}`;
 }
 
 export default PlayerCard;
