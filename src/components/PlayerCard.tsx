@@ -128,10 +128,10 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         textAnchor="middle"
         dominantBaseline="central"
         fill={centerTextColor}
-        fontSize="16"
+        fontSize="32"
         fontWeight="bold"
         fontFamily="'Bebas Neue', sans-serif"
-        letterSpacing="0.8"
+        letterSpacing="1.5"
       >
         {lastName}
       </text>
