@@ -17,8 +17,6 @@ const OUTER_R = 56;
 const INNER_R = 36;
 const TOP_TEXT_R = 46;
 const BOTTOM_TEXT_R = 46;
-const RING_FONT = 16;
-const NAME_FONT = 20;
 
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
@@ -37,9 +35,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
 }) => {
   const birthYear = player.birthDate?.match(/(\d{4})/)?.[1] || "—";
   const rawHeight = player.height?.replace("m", "").replace(",", ".").trim() || "";
-  const heightDisplay = rawHeight ? `${rawHeight.replace(".", ",")} metros` : "—";
+  const heightDisplay = rawHeight ? `.${rawHeight.split(".").pop() || rawHeight} mt` : "—";
   const foot = player.foot?.toUpperCase() || "—";
-  const isLeftFoot = foot === "IZQUIERDA" || foot === "IZQUIERDO";
   const lastName = player.name?.split(" ").pop()?.toUpperCase() || "—";
   const number = player.number || "—";
 
@@ -52,8 +49,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const bottomArcId = `arc-bot-${id}`;
 
   const nameY = CY + OUTER_R - 8;
-  const nameH = 28;
-  const nameW = 100;
+  const nameH = 24;
+  const nameW = 95;
 
   return (
     <svg
@@ -90,22 +87,22 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         <path id={bottomArcId} d={describeArcCCW(CX, CY, BOTTOM_TEXT_R, 220, 140)} fill="none" />
       </defs>
 
-      {/* Birth year — top left */}
-      <text fill={ringTextColor} fontSize={RING_FONT} fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Birth year — top left — 11pt */}
+      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topLeftArcId}`} startOffset="50%" textAnchor="middle">
           {birthYear}
         </textPath>
       </text>
 
-      {/* Height — top right */}
-      <text fill={ringTextColor} fontSize={RING_FONT} fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Height — top right — 14pt */}
+      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topRightArcId}`} startOffset="50%" textAnchor="middle">
           {heightDisplay}
         </textPath>
       </text>
 
-      {/* Foot — bottom */}
-      <text fill={isLeftFoot ? "#22c55e" : ringTextColor} fontSize={RING_FONT} fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Foot — bottom — 14pt */}
+      <text fill={foot === "IZQUIERDA" ? "#22c55e" : ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${bottomArcId}`} startOffset="50%" textAnchor="middle">
           {foot}
         </textPath>
@@ -128,7 +125,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         textAnchor="middle"
         dominantBaseline="central"
         fill={centerTextColor}
-        fontSize={NAME_FONT}
+        fontSize="16"
         fontWeight="bold"
         fontFamily="'Bebas Neue', sans-serif"
         letterSpacing="0.8"
