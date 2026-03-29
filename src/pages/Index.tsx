@@ -36,15 +36,15 @@ const Index: React.FC = () => {
       try {
         const dataUrl = await toPng(card, {
           pixelRatio: 1,
-          width: 145,
-          height: 149,
-          canvasWidth: 145,
-          canvasHeight: 149,
+          width: 300,
+          height: 300,
+          canvasWidth: 300,
+          canvasHeight: 300,
           backgroundColor: "transparent",
           skipAutoScale: true,
           style: {
-            width: "145px",
-            height: "149px",
+            width: "300px",
+            height: "300px",
             margin: "0",
           },
         });
