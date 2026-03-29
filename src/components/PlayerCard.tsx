@@ -37,8 +37,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
 }) => {
   const birthYear = player.birthDate?.match(/(\d{4})/)?.[1] || "—";
   const rawHeight = player.height?.replace("m", "").replace(",", ".").trim() || "";
-  const heightDisplay = rawHeight ? `.${rawHeight.split(".").pop() || rawHeight} mt` : "—";
+  const heightDisplay = rawHeight ? `${rawHeight.replace(".", ",")} metros` : "—";
   const foot = player.foot?.toUpperCase() || "—";
+  const isLeftFoot = foot === "IZQUIERDA" || foot === "IZQUIERDO";
   const lastName = player.name?.split(" ").pop()?.toUpperCase() || "—";
   const number = player.number || "—";
 
