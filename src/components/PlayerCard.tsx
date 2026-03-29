@@ -9,14 +9,14 @@ interface PlayerCardProps {
 }
 
 // ViewBox matches pt dimensions for perfect export
-const VB_W = 145;
-const VB_H = 149;
+const VB_W = 300;
+const VB_H = 300;
 const CX = VB_W / 2;
-const CY = 60;
-const OUTER_R = 56;
-const INNER_R = 36;
-const TOP_TEXT_R = 46;
-const BOTTOM_TEXT_R = 46;
+const CY = 120;
+const OUTER_R = 112;
+const INNER_R = 72;
+const TOP_TEXT_R = 92;
+const BOTTOM_TEXT_R = 92;
 
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
