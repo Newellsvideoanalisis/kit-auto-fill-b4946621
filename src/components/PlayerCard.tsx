@@ -17,6 +17,8 @@ const OUTER_R = 56;
 const INNER_R = 36;
 const TOP_TEXT_R = 46;
 const BOTTOM_TEXT_R = 46;
+const RING_FONT = 16;
+const NAME_FONT = 20;
 
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
