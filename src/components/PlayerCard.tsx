@@ -9,14 +9,14 @@ interface PlayerCardProps {
 }
 
 // ViewBox matches pt dimensions for perfect export
-const VB_W = 145;
-const VB_H = 149;
+const VB_W = 300;
+const VB_H = 300;
 const CX = VB_W / 2;
-const CY = 60;
-const OUTER_R = 56;
-const INNER_R = 36;
-const TOP_TEXT_R = 46;
-const BOTTOM_TEXT_R = 46;
+const CY = 120;
+const OUTER_R = 112;
+const INNER_R = 72;
+const TOP_TEXT_R = 92;
+const BOTTOM_TEXT_R = 92;
 
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
@@ -34,9 +34,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   width = 120,
 }) => {
   const birthYear = player.birthDate?.match(/(\d{4})/)?.[1] || "—";
-  const rawHeight = player.height?.replace("m", "").replace(",", ".").trim() || "";
-  const heightDisplay = rawHeight ? `.${rawHeight.split(".").pop() || rawHeight} mt` : "—";
+  const heightDisplay = player.height?.trim() || "—";
   const foot = player.foot?.toUpperCase() || "—";
+  const isLeftFoot = foot === "IZQUIERDA" || foot === "IZQUIERDO";
   const lastName = player.name?.split(" ").pop()?.toUpperCase() || "—";
   const number = player.number || "—";
 
@@ -48,9 +48,12 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const topRightArcId = `arc-tr-${id}`;
   const bottomArcId = `arc-bot-${id}`;
 
-  const nameY = CY + OUTER_R - 8;
-  const nameH = 24;
-  const nameW = 95;
+  const nameY = CY + OUTER_R - 16;
+  const nameH = 48;
+  const nameW = 190;
+
+  // Adjust font size for long foot text
+  const footFontSize = foot.length > 7 ? 18 : 22;
 
   return (
     <svg
@@ -66,43 +69,43 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       {/* Number in center */}
       <text
         x={CX}
-        y={CY + 1.5}
+        y={CY + 3}
         textAnchor="middle"
         dominantBaseline="central"
         fill={centerTextColor}
-        fontSize="42"
+        fontSize="84"
         fontWeight="bold"
         fontFamily="'Bebas Neue', sans-serif"
-        letterSpacing="1"
+        letterSpacing="2"
       >
         {number}
       </text>
 
       <defs>
-        {/* Top-left arc for birth year (clockwise, reads L-to-R) */}
+        {/* Top-left arc for birth year */}
         <path id={topLeftArcId} d={describeArc(CX, CY, TOP_TEXT_R, 300, 350)} fill="none" />
-        {/* Top-right arc for height (clockwise, reads L-to-R) */}
+        {/* Top-right arc for height */}
         <path id={topRightArcId} d={describeArc(CX, CY, TOP_TEXT_R, 10, 60)} fill="none" />
-        {/* Bottom arc for foot (counterclockwise so text reads L-to-R) */}
-        <path id={bottomArcId} d={describeArcCCW(CX, CY, BOTTOM_TEXT_R, 220, 140)} fill="none" />
+        {/* Bottom arc for foot */}
+        <path id={bottomArcId} d={describeArcCCW(CX, CY, BOTTOM_TEXT_R, 230, 130)} fill="none" />
       </defs>
 
-      {/* Birth year — top left — 11pt */}
-      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Birth year — top left */}
+      <text fill={ringTextColor} fontSize="22" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topLeftArcId}`} startOffset="50%" textAnchor="middle">
           {birthYear}
         </textPath>
       </text>
 
-      {/* Height — top right — 14pt */}
-      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Height — top right */}
+      <text fill={ringTextColor} fontSize="22" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topRightArcId}`} startOffset="50%" textAnchor="middle">
           {heightDisplay}
         </textPath>
       </text>
 
-      {/* Foot — bottom — 14pt */}
-      <text fill={foot === "IZQUIERDA" ? "#22c55e" : ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Foot — bottom */}
+      <text fill={isLeftFoot ? "#22c55e" : ringTextColor} fontSize={footFontSize} fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${bottomArcId}`} startOffset="50%" textAnchor="middle">
           {foot}
         </textPath>
@@ -125,10 +128,10 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         textAnchor="middle"
         dominantBaseline="central"
         fill={centerTextColor}
-        fontSize="16"
+        fontSize="32"
         fontWeight="bold"
         fontFamily="'Bebas Neue', sans-serif"
-        letterSpacing="0.8"
+        letterSpacing="1.5"
       >
         {lastName}
       </text>
