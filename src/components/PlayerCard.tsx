@@ -69,43 +69,43 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       {/* Number in center */}
       <text
         x={CX}
-        y={CY + 1.5}
+        y={CY + 3}
         textAnchor="middle"
         dominantBaseline="central"
         fill={centerTextColor}
-        fontSize="42"
+        fontSize="84"
         fontWeight="bold"
         fontFamily="'Bebas Neue', sans-serif"
-        letterSpacing="1"
+        letterSpacing="2"
       >
         {number}
       </text>
 
       <defs>
-        {/* Top-left arc for birth year (clockwise, reads L-to-R) */}
+        {/* Top-left arc for birth year */}
         <path id={topLeftArcId} d={describeArc(CX, CY, TOP_TEXT_R, 300, 350)} fill="none" />
-        {/* Top-right arc for height (clockwise, reads L-to-R) */}
+        {/* Top-right arc for height */}
         <path id={topRightArcId} d={describeArc(CX, CY, TOP_TEXT_R, 10, 60)} fill="none" />
-        {/* Bottom arc for foot (counterclockwise so text reads L-to-R) */}
-        <path id={bottomArcId} d={describeArcCCW(CX, CY, BOTTOM_TEXT_R, 220, 140)} fill="none" />
+        {/* Bottom arc for foot */}
+        <path id={bottomArcId} d={describeArcCCW(CX, CY, BOTTOM_TEXT_R, 230, 130)} fill="none" />
       </defs>
 
-      {/* Birth year — top left — 11pt */}
-      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Birth year — top left */}
+      <text fill={ringTextColor} fontSize="22" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topLeftArcId}`} startOffset="50%" textAnchor="middle">
           {birthYear}
         </textPath>
       </text>
 
-      {/* Height — top right — 14pt */}
-      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Height — top right */}
+      <text fill={ringTextColor} fontSize="22" fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topRightArcId}`} startOffset="50%" textAnchor="middle">
           {heightDisplay}
         </textPath>
       </text>
 
-      {/* Foot — bottom — 14pt */}
-      <text fill={foot === "IZQUIERDA" ? "#22c55e" : ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Foot — bottom */}
+      <text fill={isLeftFoot ? "#22c55e" : ringTextColor} fontSize={footFontSize} fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${bottomArcId}`} startOffset="50%" textAnchor="middle">
           {foot}
         </textPath>
