@@ -89,22 +89,22 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         <path id={bottomArcId} d={describeArcCCW(CX, CY, BOTTOM_TEXT_R, 220, 140)} fill="none" />
       </defs>
 
-      {/* Birth year — top left — 11pt */}
-      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Birth year — top left */}
+      <text fill={ringTextColor} fontSize={RING_FONT} fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topLeftArcId}`} startOffset="50%" textAnchor="middle">
           {birthYear}
         </textPath>
       </text>
 
-      {/* Height — top right — 14pt */}
-      <text fill={ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Height — top right */}
+      <text fill={ringTextColor} fontSize={RING_FONT} fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${topRightArcId}`} startOffset="50%" textAnchor="middle">
           {heightDisplay}
         </textPath>
       </text>
 
-      {/* Foot — bottom — 14pt */}
-      <text fill={foot === "IZQUIERDA" ? "#22c55e" : ringTextColor} fontSize="11" fontFamily="'Inter', sans-serif" fontWeight="700">
+      {/* Foot — bottom */}
+      <text fill={isLeftFoot ? "#22c55e" : ringTextColor} fontSize={RING_FONT} fontFamily="'Inter', sans-serif" fontWeight="700">
         <textPath href={`#${bottomArcId}`} startOffset="50%" textAnchor="middle">
           {foot}
         </textPath>
