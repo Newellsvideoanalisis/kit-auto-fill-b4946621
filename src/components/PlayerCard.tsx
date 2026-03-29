@@ -51,8 +51,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const bottomArcId = `arc-bot-${id}`;
 
   const nameY = CY + OUTER_R - 8;
-  const nameH = 24;
-  const nameW = 95;
+  const nameH = 28;
+  const nameW = 100;
 
   return (
     <svg
