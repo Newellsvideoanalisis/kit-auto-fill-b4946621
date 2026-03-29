@@ -99,8 +99,8 @@ const Index: React.FC = () => {
       {exporting && (
         <div ref={exportContainerRef} className="fixed -left-[9999px] top-0" style={{ opacity: 0 }}>
           {players.map((p) => (
-            <div key={p.id} data-player-card style={{ display: "block", width: 145, height: 149, lineHeight: 0, margin: 0, padding: 0 }}>
-              <PlayerCard player={p} color1={color1} color2={color2} width={145} />
+            <div key={p.id} data-player-card style={{ display: "block", width: 300, height: 300, lineHeight: 0, margin: 0, padding: 0 }}>
+              <PlayerCard player={p} color1={color1} color2={color2} width={300} />
             </div>
           ))}
         </div>

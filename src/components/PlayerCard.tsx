@@ -34,9 +34,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   width = 120,
 }) => {
   const birthYear = player.birthDate?.match(/(\d{4})/)?.[1] || "—";
-  const rawHeight = player.height?.replace("m", "").replace(",", ".").trim() || "";
-  const heightDisplay = rawHeight ? `.${rawHeight.split(".").pop() || rawHeight} mt` : "—";
+  const heightDisplay = player.height?.trim() || "—";
   const foot = player.foot?.toUpperCase() || "—";
+  const isLeftFoot = foot === "IZQUIERDA" || foot === "IZQUIERDO";
   const lastName = player.name?.split(" ").pop()?.toUpperCase() || "—";
   const number = player.number || "—";
 
@@ -48,9 +48,12 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const topRightArcId = `arc-tr-${id}`;
   const bottomArcId = `arc-bot-${id}`;
 
-  const nameY = CY + OUTER_R - 8;
-  const nameH = 24;
-  const nameW = 95;
+  const nameY = CY + OUTER_R - 16;
+  const nameH = 48;
+  const nameW = 190;
+
+  // Adjust font size for long foot text
+  const footFontSize = foot.length > 7 ? 18 : 22;
 
   return (
     <svg
