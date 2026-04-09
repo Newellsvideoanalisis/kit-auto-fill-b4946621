@@ -4,9 +4,11 @@ import PlayerTable from "@/components/PlayerTable";
 import Campograma from "@/components/Campograma";
 import ColorPicker from "@/components/ColorPicker";
 import PlayerCard from "@/components/PlayerCard";
+import Partidos from "@/pages/Partidos";
 import { Shirt, Download, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toPng } from "html-to-image";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -92,68 +94,81 @@ const Index: React.FC = () => {
         </div>
       </header>
 
-      <main className="container max-w-7xl mx-auto px-4 py-6 space-y-8">
-        <PlayerTable players={players} onPlayersChange={setPlayers} />
+      <main className="container max-w-7xl mx-auto px-4 py-6">
+        <Tabs defaultValue="campograma" className="space-y-6">
+          <TabsList className="bg-card border border-border">
+            <TabsTrigger value="campograma" className="font-display tracking-wider">CAMPOGRAMA</TabsTrigger>
+            <TabsTrigger value="partidos" className="font-display tracking-wider">PARTIDOS</TabsTrigger>
+          </TabsList>
 
-        {/* Color picker + export */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <ColorPicker color1={color1} color2={color2} onColor1Change={setColor1} onColor2Change={setColor2} />
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant={selectMode ? "default" : "outline"}
-              size="sm"
-              onClick={() => { setSelectMode(!selectMode); if (!selectMode) selectAll(); }}
-              disabled={players.length === 0}
-              className="gap-1.5"
-            >
-              <CheckSquare className="w-4 h-4" />
-              {selectMode ? "Cancelar selección" : "Seleccionar formas"}
-            </Button>
-            <Button size="sm" onClick={exportCards} disabled={exporting || playersToExport.length === 0} className="gap-1.5">
-              <Download className="w-4 h-4" />
-              {exporting ? "Exportando..." : selectMode ? `Exportar ${selectedIds.size} forma(s)` : "Exportar todas (ZIP)"}
-            </Button>
-          </div>
-        </div>
+          <TabsContent value="campograma" className="space-y-8">
+            <PlayerTable players={players} onPlayersChange={setPlayers} />
 
-        {/* Selection grid */}
-        {selectMode && players.length > 0 && (
-          <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">
-                Seleccioná las formas a exportar ({selectedIds.size}/{players.length})
-              </span>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={selectAll}>Todas</Button>
-                <Button variant="ghost" size="sm" onClick={selectNone}>Ninguna</Button>
+            {/* Color picker + export */}
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <ColorPicker color1={color1} color2={color2} onColor1Change={setColor1} onColor2Change={setColor2} />
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant={selectMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => { setSelectMode(!selectMode); if (!selectMode) selectAll(); }}
+                  disabled={players.length === 0}
+                  className="gap-1.5"
+                >
+                  <CheckSquare className="w-4 h-4" />
+                  {selectMode ? "Cancelar selección" : "Seleccionar formas"}
+                </Button>
+                <Button size="sm" onClick={exportCards} disabled={exporting || playersToExport.length === 0} className="gap-1.5">
+                  <Download className="w-4 h-4" />
+                  {exporting ? "Exportando..." : selectMode ? `Exportar ${selectedIds.size} forma(s)` : "Exportar todas (ZIP)"}
+                </Button>
               </div>
             </div>
-            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
-              {players.map((p) => (
-                <label
-                  key={p.id}
-                  className={`relative cursor-pointer rounded-lg border-2 p-1 transition-all ${
-                    selectedIds.has(p.id) ? "border-primary bg-primary/10" : "border-border hover:border-muted-foreground"
-                  }`}
-                >
-                  <Checkbox
-                    checked={selectedIds.has(p.id)}
-                    onCheckedChange={() => toggleSelect(p.id)}
-                    className="absolute top-1 right-1 z-10"
-                  />
-                  <div className="pointer-events-none">
-                    <PlayerCard player={p} color1={color1} color2={color2} width={80} />
-                  </div>
-                  <p className="text-[10px] text-center text-muted-foreground truncate mt-1">
-                    {p.name?.split(" ").pop()}
-                  </p>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
 
-        <Campograma players={players} color1={color1} color2={color2} />
+            {/* Selection grid */}
+            {selectMode && players.length > 0 && (
+              <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground">
+                    Seleccioná las formas a exportar ({selectedIds.size}/{players.length})
+                  </span>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={selectAll}>Todas</Button>
+                    <Button variant="ghost" size="sm" onClick={selectNone}>Ninguna</Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+                  {players.map((p) => (
+                    <label
+                      key={p.id}
+                      className={`relative cursor-pointer rounded-lg border-2 p-1 transition-all ${
+                        selectedIds.has(p.id) ? "border-primary bg-primary/10" : "border-border hover:border-muted-foreground"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={selectedIds.has(p.id)}
+                        onCheckedChange={() => toggleSelect(p.id)}
+                        className="absolute top-1 right-1 z-10"
+                      />
+                      <div className="pointer-events-none">
+                        <PlayerCard player={p} color1={color1} color2={color2} width={80} />
+                      </div>
+                      <p className="text-[10px] text-center text-muted-foreground truncate mt-1">
+                        {p.name?.split(" ").pop()}
+                      </p>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Campograma players={players} color1={color1} color2={color2} />
+          </TabsContent>
+
+          <TabsContent value="partidos">
+            <Partidos />
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Hidden container for export */}
