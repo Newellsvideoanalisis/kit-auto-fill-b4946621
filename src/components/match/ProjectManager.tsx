@@ -103,7 +103,7 @@ const ProjectManager: React.FC<Props> = ({ currentMatch, onLoad }) => {
       // Update existing
       const { error } = await supabase
         .from("matches")
-        .update({ title, match_data: currentMatch as unknown as Record<string, unknown> })
+        .update({ title, match_data: JSON.parse(JSON.stringify(currentMatch)) })
         .eq("id", selectedMatchId);
       setLoading(false);
       if (error) { toast.error("Error al guardar"); return; }
@@ -112,7 +112,7 @@ const ProjectManager: React.FC<Props> = ({ currentMatch, onLoad }) => {
       // Create new
       const { data, error } = await supabase
         .from("matches")
-        .insert({ team_id: selectedTeamId, title, match_data: currentMatch as unknown as Record<string, unknown> })
+        .insert([{ team_id: selectedTeamId, title, match_data: JSON.parse(JSON.stringify(currentMatch)) }])
         .select()
         .single();
       setLoading(false);
