@@ -3,27 +3,37 @@ import { MatchData, MatchPlayer } from "@/types/match";
 import MatchPlayerMarker from "./MatchPlayerMarker";
 import { toPng } from "html-to-image";
 import { Button } from "@/components/ui/button";
-import { Download, RotateCcw, CheckSquare } from "lucide-react";
+import { Download, CheckSquare, LayoutGrid } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { FORMATION_OPTIONS, getFormationPositions } from "@/lib/formations";
 
 interface Props {
   match: MatchData;
   onPlayersChange: (players: MatchPlayer[]) => void;
+  onFormationChange?: (formation: string) => void;
 }
 
-const PLATE_W = 1400;
-const PLATE_H = 900;
+const PLATE_W = 1920;
+const PLATE_H = 1080;
 
-// Field dimensions inside the plate
-const MAIN_FIELD = { x: 30, y: 120, w: 520, h: 750 };
+// Layout matching reference: 1 large left field, 6 small fields (2 cols x 3 rows)
+const MAIN_FIELD = { x: 30, y: 140, w: 560, h: 880 };
 const SMALL_FIELDS = [
-  { x: 620, y: 120, w: 350, h: 340 },
-  { x: 1020, y: 120, w: 350, h: 340 },
-  { x: 620, y: 500, w: 350, h: 340 },
-  { x: 1020, y: 500, w: 350, h: 340 },
+  // Column 1
+  { x: 640, y: 140, w: 300, h: 270 },
+  { x: 640, y: 430, w: 300, h: 270 },
+  { x: 640, y: 720, w: 300, h: 270 },
+  // Column 2
+  { x: 960, y: 140, w: 300, h: 270 },
+  { x: 960, y: 430, w: 300, h: 270 },
+  { x: 960, y: 720, w: 300, h: 270 },
 ];
+
+// Substitutions table area
+const SUBS_AREA = { x: 1300, y: 140, w: 590, h: 400 };
 
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
@@ -36,49 +46,79 @@ function getContrastColor(hex: string): string {
 
 const FieldSVG: React.FC<{ x: number; y: number; w: number; h: number }> = ({ x, y, w, h }) => (
   <g>
-    <rect x={x} y={y} width={w} height={h} fill="#f5f5f5" stroke="#999" strokeWidth="1.5" />
-    <rect x={x + 3} y={y + 3} width={w - 6} height={h - 6} fill="none" stroke="#888" strokeWidth="1" />
-    <line x1={x + 3} y1={y + h / 2} x2={x + w - 3} y2={y + h / 2} stroke="#888" strokeWidth="1" />
-    <circle cx={x + w / 2} cy={y + h / 2} r={Math.min(w, h) * 0.1} fill="none" stroke="#888" strokeWidth="1" />
-    <circle cx={x + w / 2} cy={y + h / 2} r="2" fill="#888" />
-    {/* Top box */}
-    <rect x={x + w / 2 - w * 0.2} y={y + 3} width={w * 0.4} height={h * 0.1} fill="none" stroke="#888" strokeWidth="1" />
-    <rect x={x + w / 2 - w * 0.08} y={y + 3} width={w * 0.16} height={h * 0.04} fill="none" stroke="#888" strokeWidth="1" />
-    <rect x={x + w / 2 - w * 0.04} y={y} width={w * 0.08} height="4" fill="none" stroke="#888" strokeWidth="1" rx="1" />
-    {/* Bottom box */}
-    <rect x={x + w / 2 - w * 0.2} y={y + h - 3 - h * 0.1} width={w * 0.4} height={h * 0.1} fill="none" stroke="#888" strokeWidth="1" />
-    <rect x={x + w / 2 - w * 0.08} y={y + h - 3 - h * 0.04} width={w * 0.16} height={h * 0.04} fill="none" stroke="#888" strokeWidth="1" />
-    <rect x={x + w / 2 - w * 0.04} y={y + h - 4} width={w * 0.08} height="4" fill="none" stroke="#888" strokeWidth="1" rx="1" />
+    <rect x={x} y={y} width={w} height={h} fill="#f0f0f0" stroke="#aaa" strokeWidth="1.5" />
+    <rect x={x + 3} y={y + 3} width={w - 6} height={h - 6} fill="none" stroke="#999" strokeWidth="1" />
+    <line x1={x + 3} y1={y + h / 2} x2={x + w - 3} y2={y + h / 2} stroke="#999" strokeWidth="1" />
+    <circle cx={x + w / 2} cy={y + h / 2} r={Math.min(w, h) * 0.12} fill="none" stroke="#999" strokeWidth="1" />
+    <circle cx={x + w / 2} cy={y + h / 2} r="2" fill="#999" />
+    {/* Top penalty area */}
+    <rect x={x + w / 2 - w * 0.22} y={y + 3} width={w * 0.44} height={h * 0.12} fill="none" stroke="#999" strokeWidth="1" />
+    <rect x={x + w / 2 - w * 0.1} y={y + 3} width={w * 0.2} height={h * 0.05} fill="none" stroke="#999" strokeWidth="1" />
+    <rect x={x + w / 2 - w * 0.05} y={y} width={w * 0.1} height="4" fill="none" stroke="#999" strokeWidth="1" rx="1" />
+    {/* Bottom penalty area */}
+    <rect x={x + w / 2 - w * 0.22} y={y + h - 3 - h * 0.12} width={w * 0.44} height={h * 0.12} fill="none" stroke="#999" strokeWidth="1" />
+    <rect x={x + w / 2 - w * 0.1} y={y + h - 3 - h * 0.05} width={w * 0.2} height={h * 0.05} fill="none" stroke="#999" strokeWidth="1" />
+    <rect x={x + w / 2 - w * 0.05} y={y + h - 4} width={w * 0.1} height="4" fill="none" stroke="#999" strokeWidth="1" rx="1" />
   </g>
 );
 
-const MatchPlate: React.FC<Props> = ({ match, onPlayersChange }) => {
+const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange }) => {
   const plateRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Initialize positions for players
-  useEffect(() => {
-    const updated = match.players.map((p, i) => {
-      if (p.x !== undefined && p.y !== undefined) return p;
-      // Default: starters on main field, bench on side
-      if (p.isStarter) {
-        const teamOffset = p.team === "home" ? 0 : MAIN_FIELD.w / 2;
-        const row = match.players.filter((pp) => pp.team === p.team && pp.isStarter).indexOf(p);
-        const col = Math.floor(row / 6);
-        const r = row % 6;
-        return { ...p, x: MAIN_FIELD.x + teamOffset + 30 + col * 80, y: MAIN_FIELD.y + 40 + r * 110 };
-      } else {
-        const benchIdx = match.players.filter((pp) => pp.team === p.team && !pp.isStarter).indexOf(p);
-        const bx = p.team === "home" ? SMALL_FIELDS[0].x : SMALL_FIELDS[1].x;
-        const by = SMALL_FIELDS[0].y;
-        return { ...p, x: bx + 30 + (benchIdx % 4) * 80, y: by + 30 + Math.floor(benchIdx / 4) * 90 };
+  // Auto-position with formation
+  const applyFormation = useCallback((formation: string) => {
+    const homeStarters = match.players.filter(p => p.team === "home" && p.isStarter);
+    const awayStarters = match.players.filter(p => p.team === "away" && p.isStarter);
+    const positions = getFormationPositions(formation, MAIN_FIELD.x, MAIN_FIELD.y, MAIN_FIELD.w, MAIN_FIELD.h);
+
+    let updated = [...match.players];
+    
+    // Position home starters
+    homeStarters.forEach((p, i) => {
+      if (i < positions.length) {
+        const idx = updated.findIndex(pp => pp.id === p.id);
+        if (idx >= 0) updated[idx] = { ...updated[idx], x: positions[i].x, y: positions[i].y };
       }
     });
-    if (JSON.stringify(updated) !== JSON.stringify(match.players)) {
-      onPlayersChange(updated);
+
+    // Position away starters on a small field
+    const awayField = SMALL_FIELDS[0];
+    const awayPositions = getFormationPositions(formation, awayField.x, awayField.y, awayField.w, awayField.h);
+    awayStarters.forEach((p, i) => {
+      if (i < awayPositions.length) {
+        const idx = updated.findIndex(pp => pp.id === p.id);
+        if (idx >= 0) updated[idx] = { ...updated[idx], x: awayPositions[i].x, y: awayPositions[i].y };
+      }
+    });
+
+    // Position bench players
+    const homeBench = updated.filter(p => p.team === "home" && !p.isStarter);
+    const awayBench = updated.filter(p => p.team === "away" && !p.isStarter);
+    
+    homeBench.forEach((p, i) => {
+      const sf = SMALL_FIELDS[2]; // bottom-left small field
+      const idx = updated.findIndex(pp => pp.id === p.id);
+      if (idx >= 0) updated[idx] = { ...updated[idx], x: sf.x + 20 + (i % 5) * 55, y: sf.y + 20 + Math.floor(i / 5) * 70 };
+    });
+
+    awayBench.forEach((p, i) => {
+      const sf = SMALL_FIELDS[3]; // bottom-right small field  
+      const idx = updated.findIndex(pp => pp.id === p.id);
+      if (idx >= 0) updated[idx] = { ...updated[idx], x: sf.x + 20 + (i % 5) * 55, y: sf.y + 20 + Math.floor(i / 5) * 70 };
+    });
+
+    onPlayersChange(updated);
+  }, [match.players, onPlayersChange]);
+
+  // Initialize positions
+  useEffect(() => {
+    const needsPositioning = match.players.some(p => p.x === undefined || p.y === undefined);
+    if (needsPositioning && match.players.length > 0) {
+      applyFormation(match.formation || "4-3-3");
     }
   }, [match.players.length]);
 
@@ -175,7 +215,36 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange }) => {
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-xl font-display text-foreground tracking-wider">PLACA DEL PARTIDO</h2>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          {/* Formation selector */}
+          <div className="flex items-center gap-1.5">
+            <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+            <Select
+              value={match.formation}
+              onValueChange={(v) => {
+                onFormationChange?.(v);
+                applyFormation(v);
+              }}
+            >
+              <SelectTrigger className="w-28 h-8 text-xs">
+                <SelectValue placeholder="Formación" />
+              </SelectTrigger>
+              <SelectContent>
+                {FORMATION_OPTIONS.map((f) => (
+                  <SelectItem key={f} value={f}>{f}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => applyFormation(match.formation || "4-3-3")}
+              className="h-8 text-xs"
+            >
+              Aplicar
+            </Button>
+          </div>
+
           <Button
             variant={selectMode ? "default" : "outline"}
             size="sm"
@@ -255,39 +324,89 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange }) => {
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         >
-          {/* Header - Black band */}
+          {/* ===== HEADER ===== */}
+          {/* Black band - main header */}
           <div
             className="absolute"
             style={{
-              left: 0, top: 0, width: PLATE_W, height: 50,
+              left: 0, top: 0, width: PLATE_W, height: 60,
               background: "#000000",
-              clipPath: "polygon(0 0, 100% 0, 95% 100%, 0 100%)",
+              clipPath: "polygon(0 0, 100% 0, 92% 100%, 0 100%)",
             }}
           >
-            <div className="flex items-center justify-between h-full px-6">
-              <div className="text-white font-display text-lg tracking-wider">
-                {match.homeTeam?.toUpperCase() || "LOCAL"} vs {match.awayTeam?.toUpperCase() || "VISITANTE"}
-              </div>
-              <div className="text-white text-xs opacity-80">
-                {match.matchday} — {match.tournament?.toUpperCase()}
-              </div>
+            <div className="flex items-center h-full px-8">
+              <span
+                style={{
+                  color: "#ffffff",
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 32,
+                  letterSpacing: "3px",
+                  fontWeight: 700,
+                  fontStyle: "italic",
+                }}
+              >
+                {match.homeTeam?.toUpperCase() || "LOCAL"}
+              </span>
+              <span
+                style={{
+                  color: "#ffffff",
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 32,
+                  letterSpacing: "3px",
+                  fontWeight: 700,
+                  fontStyle: "italic",
+                  margin: "0 16px",
+                  opacity: 0.6,
+                }}
+              >
+                VS
+              </span>
+              <span
+                style={{
+                  color: "#ffffff",
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 32,
+                  letterSpacing: "3px",
+                  fontWeight: 700,
+                  fontStyle: "italic",
+                }}
+              >
+                {match.awayTeam?.toUpperCase() || "VISITANTE"}
+              </span>
             </div>
           </div>
 
-          {/* Sub-header with matchday info */}
+          {/* Sub-header - dark gray band */}
           <div
             className="absolute"
             style={{
-              left: 0, top: 50, width: PLATE_W, height: 30,
+              left: 0, top: 60, width: PLATE_W, height: 35,
               background: "#1a1a1a",
-              clipPath: "polygon(0 0, 95% 0, 92% 100%, 0 100%)",
+              clipPath: "polygon(0 0, 92% 0, 88% 100%, 0 100%)",
             }}
           >
-            <div className="flex items-center h-full px-6">
-              <span className="text-white/80 font-display text-sm tracking-wider">
-                {match.matchday}
+            <div className="flex items-center h-full px-8 gap-12">
+              <span
+                style={{
+                  color: "#ffffff",
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 18,
+                  letterSpacing: "2px",
+                  fontStyle: "italic",
+                  opacity: 0.8,
+                }}
+              >
+                {match.matchday || "F01"}
               </span>
-              <span className="text-white font-display text-sm tracking-wider ml-16">
+              <span
+                style={{
+                  color: "#ffffff",
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 22,
+                  letterSpacing: "4px",
+                  fontWeight: 700,
+                }}
+              >
                 {match.tournament?.toUpperCase() || "TORNEO"}
               </span>
             </div>
@@ -297,55 +416,94 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange }) => {
           <div
             className="absolute flex items-center justify-center"
             style={{
-              right: 0, top: 0, width: 200, height: 80,
+              right: 0, top: 0, width: 280, height: 95,
               background: "#ef4444",
-              clipPath: "polygon(30% 0, 100% 0, 100% 100%, 0 100%)",
+              clipPath: "polygon(35% 0, 100% 0, 100% 100%, 10% 100%)",
             }}
           >
-            <span className="text-white font-display text-2xl tracking-wider font-bold ml-8">
-              {match.homeScore || "0"} : {match.awayScore || "0"}
+            <span
+              style={{
+                color: "#ffffff",
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: 42,
+                letterSpacing: "4px",
+                fontWeight: 700,
+                marginLeft: 40,
+              }}
+            >
+              {match.homeScore || "0"} - {match.awayScore || "0"}
             </span>
           </div>
 
-          {/* Stadium & Referee info */}
-          <div className="absolute" style={{ left: PLATE_W - 380, top: 85, width: 360 }}>
-            <div className="flex justify-end gap-6 text-xs">
-              <span style={{ color: "#666" }}>{match.stadium}</span>
-              <span style={{ color: "#666" }}>Árbitro: {match.referee}</span>
+          {/* Stadium & Referee info - top right area */}
+          <div className="absolute" style={{ right: 30, top: 100, textAlign: "right" }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "#666", letterSpacing: "1px" }}>
+              {match.stadium && <span>{match.stadium}</span>}
+            </div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "#666", letterSpacing: "1px" }}>
+              {match.referee && <span>Árbitro: {match.referee}</span>}
+            </div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "#666", letterSpacing: "1px" }}>
+              {match.date && <span>{match.date}</span>}
+              {match.time && <span style={{ marginLeft: 12 }}>{match.time}</span>}
             </div>
           </div>
 
           {/* Formation label */}
-          <div className="absolute" style={{ left: MAIN_FIELD.x, top: MAIN_FIELD.y - 25 }}>
-            <span className="font-display text-sm tracking-wider font-bold italic" style={{ color: "#333" }}>
+          <div className="absolute" style={{ left: MAIN_FIELD.x, top: MAIN_FIELD.y - 22 }}>
+            <span
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: 16,
+                letterSpacing: "2px",
+                fontWeight: 700,
+                fontStyle: "italic",
+                color: "#333",
+              }}
+            >
               FORMACIÓN INICIAL: {match.formation}
             </span>
           </div>
 
           {/* Fields as SVG */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${PLATE_W} ${PLATE_H}`} preserveAspectRatio="none">
+          <svg className="absolute inset-0 pointer-events-none" width={PLATE_W} height={PLATE_H} viewBox={`0 0 ${PLATE_W} ${PLATE_H}`}>
             <FieldSVG {...MAIN_FIELD} />
             {SMALL_FIELDS.map((f, i) => (
               <FieldSVG key={i} {...f} />
             ))}
           </svg>
 
-          {/* Substitutions box */}
+          {/* Substitutions table */}
           {match.substitutions.length > 0 && (
-            <div className="absolute" style={{ left: 620, top: PLATE_H - 120, width: PLATE_W - 650 }}>
-              <div className="border border-gray-300 rounded p-2 bg-white">
-                <span className="text-[10px] font-bold text-gray-700 block mb-1">CAMBIOS</span>
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+            <div className="absolute" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Bebas Neue', sans-serif" }}>
+                <thead>
+                  <tr>
+                    <th style={{ background: "#333", color: "#fff", padding: "4px 8px", textAlign: "left", letterSpacing: "1px", fontSize: 11, width: 70 }}>
+                      MINUTO
+                    </th>
+                    <th style={{ background: "#22c55e", color: "#fff", padding: "4px 8px", textAlign: "left", letterSpacing: "1px", fontSize: 11 }}>
+                      ENTRA
+                    </th>
+                    <th style={{ background: "#ef4444", color: "#fff", padding: "4px 8px", textAlign: "left", letterSpacing: "1px", fontSize: 11 }}>
+                      SALE
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
                   {match.substitutions.map((sub) => (
-                    <span key={sub.id} className="text-[9px] text-gray-600">
-                      <span className="text-green-600 font-semibold">{sub.playerInNumber} {sub.playerIn}</span>
-                      {" ⇄ "}
-                      <span className="text-red-500">{sub.playerOutNumber} {sub.playerOut}</span>
-                      {sub.minuteIn && <span className="text-gray-400"> ({sub.minuteIn}')</span>}
-                    </span>
+                    <tr key={sub.id} style={{ borderBottom: "1px solid #ddd" }}>
+                      <td style={{ padding: "3px 8px", color: "#333", fontSize: 13 }}>{sub.minuteIn}'</td>
+                      <td style={{ padding: "3px 8px", color: "#16a34a", fontSize: 13, fontWeight: 600 }}>
+                        {sub.playerInNumber} {sub.playerIn}
+                      </td>
+                      <td style={{ padding: "3px 8px", color: "#dc2626", fontSize: 13 }}>
+                        {sub.playerOutNumber} {sub.playerOut}
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              </div>
+                </tbody>
+              </table>
             </div>
           )}
 
@@ -376,7 +534,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange }) => {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Arrastrá cada jugador a su posición. Exportá la placa completa o seleccioná formas individuales.
+        Seleccioná una formación y hacé clic en "Aplicar" para posicionar automáticamente. Arrastrá cada jugador para ajustar.
       </p>
     </div>
   );
