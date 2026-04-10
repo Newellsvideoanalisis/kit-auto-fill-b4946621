@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { MatchData } from "@/types/match";
 import MatchForm from "@/components/match/MatchForm";
 import MatchPlate from "@/components/match/MatchPlate";
+import ProjectManager from "@/components/match/ProjectManager";
 
 const defaultMatch: MatchData = {
   homeTeam: "",
@@ -34,8 +35,13 @@ const Partidos: React.FC = () => {
     setMatch((prev) => ({ ...prev, formation }));
   };
 
+  const handleLoadMatch = (data: MatchData) => {
+    setMatch(data);
+  };
+
   return (
     <div className="space-y-8">
+      <ProjectManager currentMatch={match} onLoad={handleLoadMatch} />
       <MatchForm match={match} onChange={setMatch} />
       <MatchPlate match={match} onPlayersChange={handlePlayersChange} onFormationChange={handleFormationChange} />
     </div>
