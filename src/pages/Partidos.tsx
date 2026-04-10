@@ -30,10 +30,14 @@ const Partidos: React.FC = () => {
     setMatch((prev) => ({ ...prev, players }));
   };
 
+  const handleFormationChange = (formation: string) => {
+    setMatch((prev) => ({ ...prev, formation }));
+  };
+
   return (
     <div className="space-y-8">
       <MatchForm match={match} onChange={setMatch} />
-      <MatchPlate match={match} onPlayersChange={handlePlayersChange} />
+      <MatchPlate match={match} onPlayersChange={handlePlayersChange} onFormationChange={handleFormationChange} />
     </div>
   );
 };
