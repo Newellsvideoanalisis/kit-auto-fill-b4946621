@@ -265,9 +265,6 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange }) => {
             }}
           >
             <div className="flex items-center justify-between h-full px-6">
-              <div className="flex items-center gap-3">
-                <span className="text-white font-display text-lg tracking-wider italic font-bold">VS</span>
-              </div>
               <div className="text-white font-display text-lg tracking-wider">
                 {match.homeTeam?.toUpperCase() || "LOCAL"} vs {match.awayTeam?.toUpperCase() || "VISITANTE"}
               </div>
