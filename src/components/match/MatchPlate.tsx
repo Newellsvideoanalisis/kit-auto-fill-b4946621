@@ -19,21 +19,16 @@ interface Props {
 const PLATE_W = 1920;
 const PLATE_H = 1080;
 
-// Layout matching reference: 1 large left field, 6 small fields (2 cols x 3 rows)
-const MAIN_FIELD = { x: 30, y: 140, w: 560, h: 880 };
+// Layout: 1 large main field (left), 4 small fields (right, 2x2), subs table (far right)
+const MAIN_FIELD = { x: 30, y: 150, w: 580, h: 890 };
 const SMALL_FIELDS = [
-  // Column 1
-  { x: 640, y: 140, w: 300, h: 270 },
-  { x: 640, y: 430, w: 300, h: 270 },
-  { x: 640, y: 720, w: 300, h: 270 },
-  // Column 2
-  { x: 960, y: 140, w: 300, h: 270 },
-  { x: 960, y: 430, w: 300, h: 270 },
-  { x: 960, y: 720, w: 300, h: 270 },
+  { x: 640, y: 150, w: 280, h: 420 },   // top-left (Ventana 1)
+  { x: 940, y: 150, w: 280, h: 420 },   // top-right (Ventana 2)
+  { x: 640, y: 590, w: 280, h: 420 },   // bottom-left (Ventana 3)
+  { x: 940, y: 590, w: 280, h: 420 },   // bottom-right (Ventana 4)
 ];
 
-// Substitutions table area
-const SUBS_AREA = { x: 1300, y: 140, w: 590, h: 400 };
+const SUBS_AREA = { x: 1260, y: 150, w: 630, h: 500 };
 
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
@@ -44,7 +39,7 @@ function getContrastColor(hex: string): string {
   return luminance > 0.55 ? "#000000" : "#ffffff";
 }
 
-const FieldSVG: React.FC<{ x: number; y: number; w: number; h: number }> = ({ x, y, w, h }) => (
+const FieldSVG: React.FC<{ x: number; y: number; w: number; h: number; label?: string }> = ({ x, y, w, h, label }) => (
   <g>
     <rect x={x} y={y} width={w} height={h} fill="#f0f0f0" stroke="#aaa" strokeWidth="1.5" />
     <rect x={x + 3} y={y + 3} width={w - 6} height={h - 6} fill="none" stroke="#999" strokeWidth="1" />
@@ -59,6 +54,21 @@ const FieldSVG: React.FC<{ x: number; y: number; w: number; h: number }> = ({ x,
     <rect x={x + w / 2 - w * 0.22} y={y + h - 3 - h * 0.12} width={w * 0.44} height={h * 0.12} fill="none" stroke="#999" strokeWidth="1" />
     <rect x={x + w / 2 - w * 0.1} y={y + h - 3 - h * 0.05} width={w * 0.2} height={h * 0.05} fill="none" stroke="#999" strokeWidth="1" />
     <rect x={x + w / 2 - w * 0.05} y={y + h - 4} width={w * 0.1} height="4" fill="none" stroke="#999" strokeWidth="1" rx="1" />
+    {label && (
+      <text
+        x={x + w / 2}
+        y={y - 8}
+        textAnchor="middle"
+        fill="#555"
+        fontSize="13"
+        fontFamily="'Bebas Neue', sans-serif"
+        letterSpacing="1.5"
+        fontWeight="700"
+        fontStyle="italic"
+      >
+        {label}
+      </text>
+    )}
   </g>
 );
 
@@ -69,15 +79,13 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Auto-position with formation
   const applyFormation = useCallback((formation: string) => {
     const homeStarters = match.players.filter(p => p.team === "home" && p.isStarter);
     const awayStarters = match.players.filter(p => p.team === "away" && p.isStarter);
     const positions = getFormationPositions(formation, MAIN_FIELD.x, MAIN_FIELD.y, MAIN_FIELD.w, MAIN_FIELD.h);
 
     let updated = [...match.players];
-    
-    // Position home starters
+
     homeStarters.forEach((p, i) => {
       if (i < positions.length) {
         const idx = updated.findIndex(pp => pp.id === p.id);
@@ -85,7 +93,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
       }
     });
 
-    // Position away starters on a small field
+    // Away starters on the first small field
     const awayField = SMALL_FIELDS[0];
     const awayPositions = getFormationPositions(formation, awayField.x, awayField.y, awayField.w, awayField.h);
     awayStarters.forEach((p, i) => {
@@ -95,26 +103,25 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
       }
     });
 
-    // Position bench players
+    // Bench players spread on remaining small fields
     const homeBench = updated.filter(p => p.team === "home" && !p.isStarter);
     const awayBench = updated.filter(p => p.team === "away" && !p.isStarter);
-    
+
     homeBench.forEach((p, i) => {
-      const sf = SMALL_FIELDS[2]; // bottom-left small field
+      const sf = SMALL_FIELDS[2];
       const idx = updated.findIndex(pp => pp.id === p.id);
-      if (idx >= 0) updated[idx] = { ...updated[idx], x: sf.x + 20 + (i % 5) * 55, y: sf.y + 20 + Math.floor(i / 5) * 70 };
+      if (idx >= 0) updated[idx] = { ...updated[idx], x: sf.x + 20 + (i % 5) * 50, y: sf.y + 30 + Math.floor(i / 5) * 65 };
     });
 
     awayBench.forEach((p, i) => {
-      const sf = SMALL_FIELDS[3]; // bottom-right small field  
+      const sf = SMALL_FIELDS[3];
       const idx = updated.findIndex(pp => pp.id === p.id);
-      if (idx >= 0) updated[idx] = { ...updated[idx], x: sf.x + 20 + (i % 5) * 55, y: sf.y + 20 + Math.floor(i / 5) * 70 };
+      if (idx >= 0) updated[idx] = { ...updated[idx], x: sf.x + 20 + (i % 5) * 50, y: sf.y + 30 + Math.floor(i / 5) * 65 };
     });
 
     onPlayersChange(updated);
   }, [match.players, onPlayersChange]);
 
-  // Initialize positions
   useEffect(() => {
     const needsPositioning = match.players.some(p => p.x === undefined || p.y === undefined);
     if (needsPositioning && match.players.length > 0) {
@@ -329,9 +336,9 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
           <div
             className="absolute"
             style={{
-              left: 0, top: 0, width: PLATE_W, height: 60,
+              left: 0, top: 0, width: PLATE_W, height: 65,
               background: "#000000",
-              clipPath: "polygon(0 0, 100% 0, 92% 100%, 0 100%)",
+              clipPath: "polygon(0 0, 100% 0, 93% 100%, 0 100%)",
             }}
           >
             <div className="flex items-center h-full px-8">
@@ -339,7 +346,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
                 style={{
                   color: "#ffffff",
                   fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 32,
+                  fontSize: 36,
                   letterSpacing: "3px",
                   fontWeight: 700,
                   fontStyle: "italic",
@@ -351,12 +358,12 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
                 style={{
                   color: "#ffffff",
                   fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 32,
+                  fontSize: 36,
                   letterSpacing: "3px",
                   fontWeight: 700,
                   fontStyle: "italic",
-                  margin: "0 16px",
-                  opacity: 0.6,
+                  margin: "0 20px",
+                  opacity: 0.5,
                 }}
               >
                 VS
@@ -365,7 +372,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
                 style={{
                   color: "#ffffff",
                   fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 32,
+                  fontSize: 36,
                   letterSpacing: "3px",
                   fontWeight: 700,
                   fontStyle: "italic",
@@ -380,9 +387,9 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
           <div
             className="absolute"
             style={{
-              left: 0, top: 60, width: PLATE_W, height: 35,
+              left: 0, top: 65, width: PLATE_W, height: 35,
               background: "#1a1a1a",
-              clipPath: "polygon(0 0, 92% 0, 88% 100%, 0 100%)",
+              clipPath: "polygon(0 0, 93% 0, 89% 100%, 0 100%)",
             }}
           >
             <div className="flex items-center h-full px-8 gap-12">
@@ -412,49 +419,68 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             </div>
           </div>
 
+          {/* Third band - lighter gray for stadium/referee/date */}
+          <div
+            className="absolute"
+            style={{
+              left: 0, top: 100, width: PLATE_W, height: 30,
+              background: "#2a2a2a",
+              clipPath: "polygon(0 0, 89% 0, 86% 100%, 0 100%)",
+            }}
+          >
+            <div className="flex items-center h-full px-8 gap-10">
+              {match.stadium && (
+                <span style={{ color: "#ccc", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1.5px" }}>
+                  🏟️ {match.stadium}
+                </span>
+              )}
+              {match.referee && (
+                <span style={{ color: "#ccc", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1.5px" }}>
+                  👤 {match.referee}
+                </span>
+              )}
+              {match.date && (
+                <span style={{ color: "#999", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1px" }}>
+                  {match.date}
+                </span>
+              )}
+              {match.time && (
+                <span style={{ color: "#999", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1px" }}>
+                  {match.time}
+                </span>
+              )}
+            </div>
+          </div>
+
           {/* Red triangle with result */}
           <div
             className="absolute flex items-center justify-center"
             style={{
-              right: 0, top: 0, width: 280, height: 95,
+              right: 0, top: 0, width: 300, height: 100,
               background: "#ef4444",
-              clipPath: "polygon(35% 0, 100% 0, 100% 100%, 10% 100%)",
+              clipPath: "polygon(30% 0, 100% 0, 100% 100%, 8% 100%)",
             }}
           >
             <span
               style={{
                 color: "#ffffff",
                 fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 42,
-                letterSpacing: "4px",
+                fontSize: 48,
+                letterSpacing: "6px",
                 fontWeight: 700,
-                marginLeft: 40,
+                marginLeft: 50,
               }}
             >
               {match.homeScore || "0"} - {match.awayScore || "0"}
             </span>
           </div>
 
-          {/* Stadium & Referee info - top right area */}
-          <div className="absolute" style={{ right: 30, top: 100, textAlign: "right" }}>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "#666", letterSpacing: "1px" }}>
-              {match.stadium && <span>{match.stadium}</span>}
-            </div>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "#666", letterSpacing: "1px" }}>
-              {match.referee && <span>Árbitro: {match.referee}</span>}
-            </div>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "#666", letterSpacing: "1px" }}>
-              {match.date && <span>{match.date}</span>}
-              {match.time && <span style={{ marginLeft: 12 }}>{match.time}</span>}
-            </div>
-          </div>
-
-          {/* Formation label */}
-          <div className="absolute" style={{ left: MAIN_FIELD.x, top: MAIN_FIELD.y - 22 }}>
+          {/* Formation label above main field */}
+          <div className="absolute" style={{ left: MAIN_FIELD.x, top: MAIN_FIELD.y - 18 }}>
             <span
               style={{
                 fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 16,
+                fontSize: 15,
                 letterSpacing: "2px",
                 fontWeight: 700,
                 fontStyle: "italic",
@@ -469,23 +495,36 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
           <svg className="absolute inset-0 pointer-events-none" width={PLATE_W} height={PLATE_H} viewBox={`0 0 ${PLATE_W} ${PLATE_H}`}>
             <FieldSVG {...MAIN_FIELD} />
             {SMALL_FIELDS.map((f, i) => (
-              <FieldSVG key={i} {...f} />
+              <FieldSVG key={i} {...f} label={`VENTANA ${i + 1}`} />
             ))}
           </svg>
 
           {/* Substitutions table */}
           {match.substitutions.length > 0 && (
             <div className="absolute" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Bebas Neue', sans-serif" }}>
+              <div
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 16,
+                  letterSpacing: "2px",
+                  fontWeight: 700,
+                  color: "#333",
+                  marginBottom: 8,
+                  fontStyle: "italic",
+                }}
+              >
+                CAMBIOS
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "'Bebas Neue', sans-serif" }}>
                 <thead>
                   <tr>
-                    <th style={{ background: "#333", color: "#fff", padding: "4px 8px", textAlign: "left", letterSpacing: "1px", fontSize: 11, width: 70 }}>
+                    <th style={{ background: "#333", color: "#fff", padding: "5px 10px", textAlign: "left", letterSpacing: "1px", fontSize: 12, width: 80 }}>
                       MINUTO
                     </th>
-                    <th style={{ background: "#22c55e", color: "#fff", padding: "4px 8px", textAlign: "left", letterSpacing: "1px", fontSize: 11 }}>
+                    <th style={{ background: "#22c55e", color: "#fff", padding: "5px 10px", textAlign: "left", letterSpacing: "1px", fontSize: 12 }}>
                       ENTRA
                     </th>
-                    <th style={{ background: "#ef4444", color: "#fff", padding: "4px 8px", textAlign: "left", letterSpacing: "1px", fontSize: 11 }}>
+                    <th style={{ background: "#ef4444", color: "#fff", padding: "5px 10px", textAlign: "left", letterSpacing: "1px", fontSize: 12 }}>
                       SALE
                     </th>
                   </tr>
@@ -493,11 +532,11 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
                 <tbody>
                   {match.substitutions.map((sub) => (
                     <tr key={sub.id} style={{ borderBottom: "1px solid #ddd" }}>
-                      <td style={{ padding: "3px 8px", color: "#333", fontSize: 13 }}>{sub.minuteIn}'</td>
-                      <td style={{ padding: "3px 8px", color: "#16a34a", fontSize: 13, fontWeight: 600 }}>
+                      <td style={{ padding: "4px 10px", color: "#333", fontSize: 14 }}>{sub.minuteIn}'</td>
+                      <td style={{ padding: "4px 10px", color: "#16a34a", fontSize: 14, fontWeight: 600 }}>
                         {sub.playerInNumber} {sub.playerIn}
                       </td>
-                      <td style={{ padding: "3px 8px", color: "#dc2626", fontSize: 13 }}>
+                      <td style={{ padding: "4px 10px", color: "#dc2626", fontSize: 14 }}>
                         {sub.playerOutNumber} {sub.playerOut}
                       </td>
                     </tr>
@@ -506,6 +545,23 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
               </table>
             </div>
           )}
+
+          {/* Info area below subs */}
+          <div className="absolute" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y + SUBS_AREA.h + 40, width: SUBS_AREA.w }}>
+            <div
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: 14,
+                letterSpacing: "1.5px",
+                color: "#888",
+                lineHeight: "1.8",
+              }}
+            >
+              {match.stadium && <div>ESTADIO: {match.stadium}</div>}
+              {match.referee && <div>ÁRBITRO: {match.referee}</div>}
+              {match.date && <div>FECHA: {match.date} {match.time && `- ${match.time}`}</div>}
+            </div>
+          </div>
 
           {/* Draggable player markers */}
           {match.players.map((player) => {
@@ -534,7 +590,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Seleccioná una formación y hacé clic en "Aplicar" para posicionar automáticamente. Arrastrá cada jugador para ajustar.
+        Seleccioná una formación y hacé clic en "Aplicar" para posicionar automáticamente. Arrastrá cada jugador para ajustar. Las 4 canchas secundarias son para "ventanas" de cambios.
       </p>
     </div>
   );
