@@ -3,6 +3,7 @@ import { MatchData } from "@/types/match";
 import MatchForm from "@/components/match/MatchForm";
 import MatchPlate from "@/components/match/MatchPlate";
 import ProjectManager from "@/components/match/ProjectManager";
+import TransfermarktImporter from "@/components/match/TransfermarktImporter";
 
 const defaultMatch: MatchData = {
   homeTeam: "",
@@ -39,8 +40,21 @@ const Partidos: React.FC = () => {
     setMatch(data);
   };
 
+  const handleImport = (data: Partial<MatchData>) => {
+    setMatch((prev) => ({
+      ...prev,
+      ...data,
+      // Keep colors from current state if not provided
+      homeColor1: prev.homeColor1,
+      homeColor2: prev.homeColor2,
+      awayColor1: prev.awayColor1,
+      awayColor2: prev.awayColor2,
+    }));
+  };
+
   return (
     <div className="space-y-8">
+      <TransfermarktImporter onImport={handleImport} />
       <ProjectManager currentMatch={match} onLoad={handleLoadMatch} />
       <MatchForm match={match} onChange={setMatch} />
       <MatchPlate match={match} onPlayersChange={handlePlayersChange} onFormationChange={handleFormationChange} />
