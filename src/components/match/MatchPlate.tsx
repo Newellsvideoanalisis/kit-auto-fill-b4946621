@@ -19,16 +19,15 @@ interface Props {
 const PLATE_W = 1920;
 const PLATE_H = 1080;
 
-// Layout: 1 large main field (left), 4 small fields (right, 2x2), subs table (far right)
 const MAIN_FIELD = { x: 30, y: 150, w: 580, h: 890 };
 const SMALL_FIELDS = [
-  { x: 640, y: 150, w: 280, h: 420 },   // top-left (Ventana 1)
-  { x: 940, y: 150, w: 280, h: 420 },   // top-right (Ventana 2)
-  { x: 640, y: 590, w: 280, h: 420 },   // bottom-left (Ventana 3)
-  { x: 940, y: 590, w: 280, h: 420 },   // bottom-right (Ventana 4)
+  { x: 640, y: 150, w: 280, h: 420 },
+  { x: 940, y: 150, w: 280, h: 420 },
+  { x: 640, y: 590, w: 280, h: 420 },
+  { x: 940, y: 590, w: 280, h: 420 },
 ];
 
-const SUBS_AREA = { x: 1260, y: 150, w: 630, h: 500 };
+const SUBS_AREA = { x: 1260, y: 150, w: 630, h: 880 };
 
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
@@ -46,11 +45,9 @@ const FieldSVG: React.FC<{ x: number; y: number; w: number; h: number; label?: s
     <line x1={x + 3} y1={y + h / 2} x2={x + w - 3} y2={y + h / 2} stroke="#999" strokeWidth="1" />
     <circle cx={x + w / 2} cy={y + h / 2} r={Math.min(w, h) * 0.12} fill="none" stroke="#999" strokeWidth="1" />
     <circle cx={x + w / 2} cy={y + h / 2} r="2" fill="#999" />
-    {/* Top penalty area */}
     <rect x={x + w / 2 - w * 0.22} y={y + 3} width={w * 0.44} height={h * 0.12} fill="none" stroke="#999" strokeWidth="1" />
     <rect x={x + w / 2 - w * 0.1} y={y + 3} width={w * 0.2} height={h * 0.05} fill="none" stroke="#999" strokeWidth="1" />
     <rect x={x + w / 2 - w * 0.05} y={y} width={w * 0.1} height="4" fill="none" stroke="#999" strokeWidth="1" rx="1" />
-    {/* Bottom penalty area */}
     <rect x={x + w / 2 - w * 0.22} y={y + h - 3 - h * 0.12} width={w * 0.44} height={h * 0.12} fill="none" stroke="#999" strokeWidth="1" />
     <rect x={x + w / 2 - w * 0.1} y={y + h - 3 - h * 0.05} width={w * 0.2} height={h * 0.05} fill="none" stroke="#999" strokeWidth="1" />
     <rect x={x + w / 2 - w * 0.05} y={y + h - 4} width={w * 0.1} height="4" fill="none" stroke="#999" strokeWidth="1" rx="1" />
@@ -78,6 +75,8 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showHomeSubs, setShowHomeSubs] = useState(true);
+  const [showAwaySubs, setShowAwaySubs] = useState(true);
 
   const applyFormation = useCallback((formation: string) => {
     const homeStarters = match.players.filter(p => p.team === "home" && p.isStarter);
@@ -93,7 +92,6 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
       }
     });
 
-    // Away starters on the first small field
     const awayField = SMALL_FIELDS[0];
     const awayPositions = getFormationPositions(formation, awayField.x, awayField.y, awayField.w, awayField.h);
     awayStarters.forEach((p, i) => {
@@ -103,7 +101,6 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
       }
     });
 
-    // Bench players spread on remaining small fields
     const homeBench = updated.filter(p => p.team === "home" && !p.isStarter);
     const awayBench = updated.filter(p => p.team === "away" && !p.isStarter);
 
@@ -218,12 +215,61 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
   const awayColor1 = match.awayColor1;
   const awayColor2 = match.awayColor2;
 
+  const homeSubs = match.substitutions.filter(s => s.team === "home");
+  const awaySubs = match.substitutions.filter(s => s.team === "away");
+  const unassignedSubs = match.substitutions.filter(s => !s.team);
+
+  const SubsTable: React.FC<{ subs: typeof match.substitutions; teamLabel: string; color: string }> = ({ subs, teamLabel, color }) => (
+    <div style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          fontFamily: "'Bebas Neue', sans-serif",
+          fontSize: 20,
+          letterSpacing: "2px",
+          fontWeight: 700,
+          color,
+          marginBottom: 6,
+          fontStyle: "italic",
+        }}
+      >
+        {teamLabel}
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Bebas Neue', sans-serif" }}>
+        <thead>
+          <tr>
+            <th style={{ background: "#333", color: "#fff", padding: "6px 12px", textAlign: "left", letterSpacing: "1.5px", fontSize: 16, width: 90 }}>
+              MIN
+            </th>
+            <th style={{ background: "#22c55e", color: "#fff", padding: "6px 12px", textAlign: "left", letterSpacing: "1.5px", fontSize: 16 }}>
+              ENTRA
+            </th>
+            <th style={{ background: "#ef4444", color: "#fff", padding: "6px 12px", textAlign: "left", letterSpacing: "1.5px", fontSize: 16 }}>
+              SALE
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {subs.map((sub) => (
+            <tr key={sub.id} style={{ borderBottom: "1px solid #ddd" }}>
+              <td style={{ padding: "5px 12px", color: "#333", fontSize: 18, fontWeight: 700 }}>{sub.minuteIn}'</td>
+              <td style={{ padding: "5px 12px", color: "#16a34a", fontSize: 18, fontWeight: 600 }}>
+                {sub.playerInNumber} {sub.playerIn}
+              </td>
+              <td style={{ padding: "5px 12px", color: "#dc2626", fontSize: 18 }}>
+                {sub.playerOutNumber} {sub.playerOut}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-xl font-display text-foreground tracking-wider">PLACA DEL PARTIDO</h2>
         <div className="flex gap-2 flex-wrap items-center">
-          {/* Formation selector */}
           <div className="flex items-center gap-1.5">
             <LayoutGrid className="w-4 h-4 text-muted-foreground" />
             <Select
@@ -250,6 +296,18 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             >
               Aplicar
             </Button>
+          </div>
+
+          {/* Subs visibility toggles */}
+          <div className="flex items-center gap-3 px-2">
+            <label className="flex items-center gap-1 text-xs cursor-pointer">
+              <Checkbox checked={showHomeSubs} onCheckedChange={(v) => setShowHomeSubs(!!v)} className="w-3.5 h-3.5" />
+              {match.homeTeam || "Local"}
+            </label>
+            <label className="flex items-center gap-1 text-xs cursor-pointer">
+              <Checkbox checked={showAwaySubs} onCheckedChange={(v) => setShowAwaySubs(!!v)} className="w-3.5 h-3.5" />
+              {match.awayTeam || "Visitante"}
+            </label>
           </div>
 
           <Button
@@ -332,7 +390,6 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
           onMouseLeave={handleMouseUp}
         >
           {/* ===== HEADER ===== */}
-          {/* Black band - main header */}
           <div
             className="absolute"
             style={{
@@ -342,48 +399,19 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             }}
           >
             <div className="flex items-center h-full px-8">
-              <span
-                style={{
-                  color: "#ffffff",
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 36,
-                  letterSpacing: "3px",
-                  fontWeight: 700,
-                  fontStyle: "italic",
-                }}
-              >
+              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: "3px", fontWeight: 700, fontStyle: "italic" }}>
                 {match.homeTeam?.toUpperCase() || "LOCAL"}
               </span>
-              <span
-                style={{
-                  color: "#ffffff",
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 36,
-                  letterSpacing: "3px",
-                  fontWeight: 700,
-                  fontStyle: "italic",
-                  margin: "0 20px",
-                  opacity: 0.5,
-                }}
-              >
+              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: "3px", fontWeight: 700, fontStyle: "italic", margin: "0 20px", opacity: 0.5 }}>
                 VS
               </span>
-              <span
-                style={{
-                  color: "#ffffff",
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 36,
-                  letterSpacing: "3px",
-                  fontWeight: 700,
-                  fontStyle: "italic",
-                }}
-              >
+              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: "3px", fontWeight: 700, fontStyle: "italic" }}>
                 {match.awayTeam?.toUpperCase() || "VISITANTE"}
               </span>
             </div>
           </div>
 
-          {/* Sub-header - dark gray band */}
+          {/* Sub-header */}
           <div
             className="absolute"
             style={{
@@ -393,33 +421,16 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             }}
           >
             <div className="flex items-center h-full px-8 gap-12">
-              <span
-                style={{
-                  color: "#ffffff",
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 18,
-                  letterSpacing: "2px",
-                  fontStyle: "italic",
-                  opacity: 0.8,
-                }}
-              >
+              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "2px", fontStyle: "italic", opacity: 0.8 }}>
                 {match.matchday || "F01"}
               </span>
-              <span
-                style={{
-                  color: "#ffffff",
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 22,
-                  letterSpacing: "4px",
-                  fontWeight: 700,
-                }}
-              >
+              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "4px", fontWeight: 700 }}>
                 {match.tournament?.toUpperCase() || "TORNEO"}
               </span>
             </div>
           </div>
 
-          {/* Third band - lighter gray for stadium/referee/date */}
+          {/* Third band - stadium/referee/date */}
           <div
             className="absolute"
             style={{
@@ -461,32 +472,14 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
               clipPath: "polygon(30% 0, 100% 0, 100% 100%, 8% 100%)",
             }}
           >
-            <span
-              style={{
-                color: "#ffffff",
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 48,
-                letterSpacing: "6px",
-                fontWeight: 700,
-                marginLeft: 50,
-              }}
-            >
+            <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 48, letterSpacing: "6px", fontWeight: 700, marginLeft: 50 }}>
               {match.homeScore || "0"} - {match.awayScore || "0"}
             </span>
           </div>
 
-          {/* Formation label above main field */}
+          {/* Formation label */}
           <div className="absolute" style={{ left: MAIN_FIELD.x, top: MAIN_FIELD.y - 18 }}>
-            <span
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 15,
-                letterSpacing: "2px",
-                fontWeight: 700,
-                fontStyle: "italic",
-                color: "#333",
-              }}
-            >
+            <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "2px", fontWeight: 700, fontStyle: "italic", color: "#333" }}>
               FORMACIÓN INICIAL: {match.formation}
             </span>
           </div>
@@ -499,68 +492,34 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             ))}
           </svg>
 
-          {/* Substitutions table */}
-          {match.substitutions.length > 0 && (
-            <div className="absolute" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w }}>
-              <div
-                style={{
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 16,
-                  letterSpacing: "2px",
-                  fontWeight: 700,
-                  color: "#333",
-                  marginBottom: 8,
-                  fontStyle: "italic",
-                }}
-              >
-                CAMBIOS
-              </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "'Bebas Neue', sans-serif" }}>
-                <thead>
-                  <tr>
-                    <th style={{ background: "#333", color: "#fff", padding: "5px 10px", textAlign: "left", letterSpacing: "1px", fontSize: 12, width: 80 }}>
-                      MINUTO
-                    </th>
-                    <th style={{ background: "#22c55e", color: "#fff", padding: "5px 10px", textAlign: "left", letterSpacing: "1px", fontSize: 12 }}>
-                      ENTRA
-                    </th>
-                    <th style={{ background: "#ef4444", color: "#fff", padding: "5px 10px", textAlign: "left", letterSpacing: "1px", fontSize: 12 }}>
-                      SALE
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {match.substitutions.map((sub) => (
-                    <tr key={sub.id} style={{ borderBottom: "1px solid #ddd" }}>
-                      <td style={{ padding: "4px 10px", color: "#333", fontSize: 14 }}>{sub.minuteIn}'</td>
-                      <td style={{ padding: "4px 10px", color: "#16a34a", fontSize: 14, fontWeight: 600 }}>
-                        {sub.playerInNumber} {sub.playerIn}
-                      </td>
-                      <td style={{ padding: "4px 10px", color: "#dc2626", fontSize: 14 }}>
-                        {sub.playerOutNumber} {sub.playerOut}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Info area below subs */}
-          <div className="absolute" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y + SUBS_AREA.h + 40, width: SUBS_AREA.w }}>
+          {/* Substitutions tables - grouped by team */}
+          <div className="absolute" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w }}>
             <div
               style={{
                 fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 14,
-                letterSpacing: "1.5px",
-                color: "#888",
-                lineHeight: "1.8",
+                fontSize: 22,
+                letterSpacing: "3px",
+                fontWeight: 700,
+                color: "#333",
+                marginBottom: 12,
+                fontStyle: "italic",
               }}
             >
-              {match.stadium && <div>ESTADIO: {match.stadium}</div>}
-              {match.referee && <div>ÁRBITRO: {match.referee}</div>}
-              {match.date && <div>FECHA: {match.date} {match.time && `- ${match.time}`}</div>}
+              CAMBIOS
             </div>
+
+            {showHomeSubs && homeSubs.length > 0 && (
+              <SubsTable subs={homeSubs} teamLabel={match.homeTeam?.toUpperCase() || "LOCAL"} color="#333" />
+            )}
+
+            {showAwaySubs && awaySubs.length > 0 && (
+              <SubsTable subs={awaySubs} teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"} color="#555" />
+            )}
+
+            {/* Unassigned subs (legacy data) */}
+            {unassignedSubs.length > 0 && (showHomeSubs || showAwaySubs) && (
+              <SubsTable subs={unassignedSubs} teamLabel="SIN EQUIPO" color="#999" />
+            )}
           </div>
 
           {/* Draggable player markers */}
@@ -590,7 +549,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Seleccioná una formación y hacé clic en "Aplicar" para posicionar automáticamente. Arrastrá cada jugador para ajustar. Las 4 canchas secundarias son para "ventanas" de cambios.
+        Seleccioná una formación y hacé clic en "Aplicar" para posicionar. Arrastrá jugadores para ajustar. Usá las casillas para mostrar/ocultar cambios por equipo.
       </p>
     </div>
   );

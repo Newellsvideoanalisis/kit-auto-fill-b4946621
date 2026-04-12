@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MatchData } from "@/types/match";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Save, Trash2, FolderOpen } from "lucide-react";
+import { Plus, Save, Trash2, FolderOpen, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Team {
@@ -41,6 +41,9 @@ const ProjectManager: React.FC<Props> = ({ currentMatch, onLoad }) => {
   const [newTeamName, setNewTeamName] = useState("");
   const [newMatchTitle, setNewMatchTitle] = useState("");
   const [loading, setLoading] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedRef = useRef<string>("");
 
   useEffect(() => {
     fetchTeams();
@@ -50,6 +53,37 @@ const ProjectManager: React.FC<Props> = ({ currentMatch, onLoad }) => {
     if (selectedTeamId) fetchMatches(selectedTeamId);
     else setMatches([]);
   }, [selectedTeamId]);
+
+  // Auto-save: debounce 2 seconds after any match data change
+  useEffect(() => {
+    if (!selectedMatchId || !selectedTeamId) return;
+
+    const serialized = JSON.stringify(currentMatch);
+    if (serialized === lastSavedRef.current) return;
+
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+
+    autoSaveTimer.current = setTimeout(async () => {
+      setAutoSaving(true);
+      try {
+        const { error } = await supabase
+          .from("matches")
+          .update({ match_data: JSON.parse(serialized) })
+          .eq("id", selectedMatchId);
+        if (!error) {
+          lastSavedRef.current = serialized;
+        }
+      } catch (e) {
+        console.error("Auto-save error:", e);
+      } finally {
+        setAutoSaving(false);
+      }
+    }, 2000);
+
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [currentMatch, selectedMatchId, selectedTeamId]);
 
   const fetchTeams = async () => {
     const { data, error } = await supabase.from("teams").select("*").order("name");
@@ -98,26 +132,29 @@ const ProjectManager: React.FC<Props> = ({ currentMatch, onLoad }) => {
 
     const title = newMatchTitle.trim() ||
       `${currentMatch.homeTeam || "Local"} vs ${currentMatch.awayTeam || "Visitante"}`;
+    const serialized = JSON.stringify(currentMatch);
 
     if (selectedMatchId) {
-      // Update existing
       const { error } = await supabase
         .from("matches")
-        .update({ title, match_data: JSON.parse(JSON.stringify(currentMatch)) })
+        .update({ title, match_data: JSON.parse(serialized) })
         .eq("id", selectedMatchId);
       setLoading(false);
       if (error) { toast.error("Error al guardar"); return; }
+      lastSavedRef.current = serialized;
       toast.success("Partido actualizado");
     } else {
-      // Create new
       const { data, error } = await supabase
         .from("matches")
-        .insert([{ team_id: selectedTeamId, title, match_data: JSON.parse(JSON.stringify(currentMatch)) }])
+        .insert([{ team_id: selectedTeamId, title, match_data: JSON.parse(serialized) }])
         .select()
         .single();
       setLoading(false);
       if (error) { toast.error("Error al guardar"); return; }
-      if (data) setSelectedMatchId(data.id);
+      if (data) {
+        setSelectedMatchId(data.id);
+        lastSavedRef.current = serialized;
+      }
       toast.success("Partido guardado");
     }
 
@@ -128,6 +165,7 @@ const ProjectManager: React.FC<Props> = ({ currentMatch, onLoad }) => {
   const loadMatch = async (matchId: string) => {
     const match = matches.find((m) => m.id === matchId);
     if (match) {
+      lastSavedRef.current = JSON.stringify(match.match_data);
       onLoad(match.match_data);
       setSelectedMatchId(matchId);
       toast.success("Partido cargado");
@@ -139,6 +177,7 @@ const ProjectManager: React.FC<Props> = ({ currentMatch, onLoad }) => {
     const { error } = await supabase.from("matches").delete().eq("id", selectedMatchId);
     if (error) { toast.error("Error al eliminar"); return; }
     setSelectedMatchId("");
+    lastSavedRef.current = "";
     if (selectedTeamId) await fetchMatches(selectedTeamId);
     toast.success("Partido eliminado");
   };
@@ -147,6 +186,14 @@ const ProjectManager: React.FC<Props> = ({ currentMatch, onLoad }) => {
     <div className="rounded-lg border border-border bg-card p-4 space-y-4">
       <h3 className="text-sm font-display tracking-wider text-foreground flex items-center gap-2">
         <FolderOpen className="w-4 h-4" /> PROYECTOS
+        {autoSaving && (
+          <span className="text-xs text-muted-foreground animate-pulse ml-2">Guardando...</span>
+        )}
+        {!autoSaving && selectedMatchId && lastSavedRef.current && (
+          <span className="text-xs text-green-500 ml-2 flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3" /> Guardado
+          </span>
+        )}
       </h3>
 
       {/* Team management */}

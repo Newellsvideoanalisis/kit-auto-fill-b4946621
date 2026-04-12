@@ -3,7 +3,7 @@ import { MatchData, MatchPlayer, MatchEvent, Substitution } from "@/types/match"
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Goal, CreditCard, ArrowRightLeft } from "lucide-react";
+import { Plus, Trash2, CreditCard, ArrowRightLeft } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Props {
@@ -52,7 +52,7 @@ const MatchForm: React.FC<Props> = ({ match, onChange }) => {
     updatePlayer(playerId, { events });
   };
 
-  const addSubstitution = () => {
+  const addSubstitution = (team?: "home" | "away") => {
     const sub: Substitution = {
       id: crypto.randomUUID(),
       minuteIn: "",
@@ -60,6 +60,7 @@ const MatchForm: React.FC<Props> = ({ match, onChange }) => {
       playerInNumber: "",
       playerOut: "",
       playerOutNumber: "",
+      team,
     };
     update({ substitutions: [...match.substitutions, sub] });
   };
@@ -80,6 +81,10 @@ const MatchForm: React.FC<Props> = ({ match, onChange }) => {
   const homeBench = homePlayers.filter((p) => !p.isStarter);
   const awayStarters = awayPlayers.filter((p) => p.isStarter);
   const awayBench = awayPlayers.filter((p) => !p.isStarter);
+
+  const homeSubs = match.substitutions.filter(s => s.team === "home");
+  const awaySubs = match.substitutions.filter(s => s.team === "away");
+  const unassignedSubs = match.substitutions.filter(s => !s.team);
 
   const ColorSelect = ({ value, onValueChange, label }: { value: string; onValueChange: (v: string) => void; label: string }) => (
     <div className="flex items-center gap-2">
@@ -140,6 +145,31 @@ const MatchForm: React.FC<Props> = ({ match, onChange }) => {
         <ArrowRightLeft className="w-3 h-3 text-red-400" />
       </button>
       <button onClick={() => removePlayer(p.id)} className="text-muted-foreground hover:text-destructive p-1">
+        <Trash2 className="w-3 h-3" />
+      </button>
+    </div>
+  );
+
+  const SubRow = ({ sub }: { sub: Substitution }) => (
+    <div className="flex items-center gap-2 py-1">
+      <Input value={sub.minuteIn} onChange={(e) => updateSub(sub.id, { minuteIn: e.target.value })} className="w-14 h-8 text-xs" placeholder="Min'" />
+      <span className="text-xs text-green-500">▶</span>
+      <Input value={sub.playerInNumber} onChange={(e) => updateSub(sub.id, { playerInNumber: e.target.value })} className="w-12 h-8 text-xs" placeholder="Nº" />
+      <Input value={sub.playerIn} onChange={(e) => updateSub(sub.id, { playerIn: e.target.value })} className="flex-1 h-8 text-xs" placeholder="Entra" />
+      <span className="text-xs text-red-500">◀</span>
+      <Input value={sub.playerOutNumber} onChange={(e) => updateSub(sub.id, { playerOutNumber: e.target.value })} className="w-12 h-8 text-xs" placeholder="Nº" />
+      <Input value={sub.playerOut} onChange={(e) => updateSub(sub.id, { playerOut: e.target.value })} className="flex-1 h-8 text-xs" placeholder="Sale" />
+      <Select value={sub.team || "none"} onValueChange={(v) => updateSub(sub.id, { team: v === "none" ? undefined : v as "home" | "away" })}>
+        <SelectTrigger className="w-20 h-8 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="home">Local</SelectItem>
+          <SelectItem value="away">Visit.</SelectItem>
+          <SelectItem value="none">—</SelectItem>
+        </SelectContent>
+      </Select>
+      <button onClick={() => removeSub(sub.id)} className="text-muted-foreground hover:text-destructive p-1">
         <Trash2 className="w-3 h-3" />
       </button>
     </div>
@@ -209,7 +239,7 @@ const MatchForm: React.FC<Props> = ({ match, onChange }) => {
         </div>
       </div>
 
-      {/* Players - Home */}
+      {/* Players */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -228,7 +258,6 @@ const MatchForm: React.FC<Props> = ({ match, onChange }) => {
           {homeBench.map((p) => <PlayerRow key={p.id} p={p} />)}
         </div>
 
-        {/* Players - Away */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-foreground">Titulares - {match.awayTeam || "Visitante"}</h4>
@@ -247,28 +276,39 @@ const MatchForm: React.FC<Props> = ({ match, onChange }) => {
         </div>
       </div>
 
-      {/* Substitutions */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-semibold text-foreground">Cambios</h4>
-          <Button size="sm" variant="ghost" onClick={addSubstitution} className="h-6 text-xs gap-1">
-            <Plus className="w-3 h-3" /> Agregar
-          </Button>
-        </div>
-        {match.substitutions.map((sub) => (
-          <div key={sub.id} className="flex items-center gap-2 py-1">
-            <Input value={sub.minuteIn} onChange={(e) => updateSub(sub.id, { minuteIn: e.target.value })} className="w-14 h-8 text-xs" placeholder="Min'" />
-            <span className="text-xs text-green-500">▶</span>
-            <Input value={sub.playerInNumber} onChange={(e) => updateSub(sub.id, { playerInNumber: e.target.value })} className="w-12 h-8 text-xs" placeholder="Nº" />
-            <Input value={sub.playerIn} onChange={(e) => updateSub(sub.id, { playerIn: e.target.value })} className="flex-1 h-8 text-xs" placeholder="Entra" />
-            <span className="text-xs text-red-500">◀</span>
-            <Input value={sub.playerOutNumber} onChange={(e) => updateSub(sub.id, { playerOutNumber: e.target.value })} className="w-12 h-8 text-xs" placeholder="Nº" />
-            <Input value={sub.playerOut} onChange={(e) => updateSub(sub.id, { playerOut: e.target.value })} className="flex-1 h-8 text-xs" placeholder="Sale" />
-            <button onClick={() => removeSub(sub.id)} className="text-muted-foreground hover:text-destructive p-1">
-              <Trash2 className="w-3 h-3" />
-            </button>
+      {/* Substitutions - grouped by team */}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-foreground">Cambios - {match.homeTeam || "Local"}</h4>
+              <Button size="sm" variant="ghost" onClick={() => addSubstitution("home")} className="h-6 text-xs gap-1">
+                <Plus className="w-3 h-3" /> Agregar
+              </Button>
+            </div>
+            {homeSubs.map((sub) => <SubRow key={sub.id} sub={sub} />)}
+            {homeSubs.length === 0 && <span className="text-xs text-muted-foreground">Sin cambios</span>}
           </div>
-        ))}
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-foreground">Cambios - {match.awayTeam || "Visitante"}</h4>
+              <Button size="sm" variant="ghost" onClick={() => addSubstitution("away")} className="h-6 text-xs gap-1">
+                <Plus className="w-3 h-3" /> Agregar
+              </Button>
+            </div>
+            {awaySubs.map((sub) => <SubRow key={sub.id} sub={sub} />)}
+            {awaySubs.length === 0 && <span className="text-xs text-muted-foreground">Sin cambios</span>}
+          </div>
+        </div>
+
+        {/* Unassigned subs */}
+        {unassignedSubs.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-muted-foreground">Cambios sin equipo asignado</h4>
+            {unassignedSubs.map((sub) => <SubRow key={sub.id} sub={sub} />)}
+          </div>
+        )}
       </div>
     </div>
   );

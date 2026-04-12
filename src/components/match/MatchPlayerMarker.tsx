@@ -29,11 +29,15 @@ const MatchPlayerMarker: React.FC<Props> = ({ player, color1, color2, size = 60 
 
   const vb = 100;
   const cx = 50;
-  const cy = 32;
-  const r = 26;
-  const nameY = 64;
-  const nameH = 18;
-  const nameW = 80;
+  const cy = 28;
+  const r = 22;
+  const nameY = 56;
+  const nameH = 28;
+  const nameW = 96;
+
+  // Truncate and calculate font size for name
+  const displayName = lastName.length > 14 ? lastName.substring(0, 13) + "." : lastName;
+  const nameFontSize = displayName.length > 10 ? 13 : displayName.length > 7 ? 15 : 17;
 
   return (
     <svg width={size} height={size * 1.1} viewBox={`0 0 ${vb} ${vb * 1.1}`}>
@@ -43,56 +47,48 @@ const MatchPlayerMarker: React.FC<Props> = ({ player, color1, color2, size = 60 
       <text
         x={cx} y={cy + 1}
         textAnchor="middle" dominantBaseline="central"
-        fill={textColor1} fontSize="24" fontWeight="bold"
+        fill={textColor1} fontSize="22" fontWeight="bold"
         fontFamily="'Bebas Neue', sans-serif"
       >
         {player.number}
       </text>
 
-      {/* Name rect */}
-      <rect x={cx - nameW / 2} y={nameY} width={nameW} height={nameH} rx="2" fill={color2} stroke="#555" strokeWidth="0.3" />
+      {/* Name rect - larger */}
+      <rect x={cx - nameW / 2} y={nameY} width={nameW} height={nameH} rx="3" fill={color2} stroke="#555" strokeWidth="0.3" />
       <text
         x={cx} y={nameY + nameH / 2 + 1}
         textAnchor="middle" dominantBaseline="central"
-        fill={textColor2} fontSize="9" fontWeight="bold"
-        fontFamily="'Bebas Neue', sans-serif" letterSpacing="0.5"
+        fill={textColor2} fontSize={nameFontSize} fontWeight="bold"
+        fontFamily="'Bebas Neue', sans-serif" letterSpacing="0.8"
       >
-        {lastName.length > 12 ? lastName.substring(0, 11) + "." : lastName}
+        {displayName}
       </text>
 
       {/* Event icons */}
       {hasGoal && (
-        <circle cx={14} cy={14} r="7" fill="white" stroke="#333" strokeWidth="0.5">
-          <title>Gol</title>
-        </circle>
-      )}
-      {hasGoal && (
-        <text x={14} y={15} textAnchor="middle" dominantBaseline="central" fontSize="8" fill="#333">⚽</text>
+        <>
+          <circle cx={14} cy={12} r="7" fill="white" stroke="#333" strokeWidth="0.5" />
+          <text x={14} y={13} textAnchor="middle" dominantBaseline="central" fontSize="8" fill="#333">⚽</text>
+        </>
       )}
 
       {hasYellow && (
-        <rect x={78} y={7} width="8" height="12" rx="1" fill="#facc15" stroke="#333" strokeWidth="0.4">
-          <title>Tarjeta Amarilla</title>
-        </rect>
+        <rect x={78} y={5} width="8" height="12" rx="1" fill="#facc15" stroke="#333" strokeWidth="0.4" />
       )}
 
       {hasRed && (
-        <rect x={78} y={7} width="8" height="12" rx="1" fill="#ef4444" stroke="#333" strokeWidth="0.4">
-          <title>Tarjeta Roja</title>
-        </rect>
+        <rect x={78} y={5} width="8" height="12" rx="1" fill="#ef4444" stroke="#333" strokeWidth="0.4" />
       )}
 
       {wasSubbed && (
-        <g transform="translate(86, 50)">
+        <g transform="translate(86, 45)">
           <polygon points="0,0 6,4 0,8" fill="#ef4444" />
-          <title>Sustituido</title>
         </g>
       )}
 
       {cameIn && (
-        <g transform="translate(6, 50)">
+        <g transform="translate(6, 45)">
           <polygon points="6,0 0,4 6,8" fill="#22c55e" />
-          <title>Ingresó</title>
         </g>
       )}
     </svg>
