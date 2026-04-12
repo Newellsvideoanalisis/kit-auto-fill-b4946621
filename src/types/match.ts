@@ -21,6 +21,7 @@ export interface Substitution {
   playerInNumber: string;
   playerOut: string;
   playerOutNumber: string;
+  team?: "home" | "away";
 }
 
 export interface MatchData {
