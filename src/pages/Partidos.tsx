@@ -5,9 +5,6 @@ import MatchForm from "@/components/match/MatchForm";
 import MatchPlate from "@/components/match/MatchPlate";
 import ProjectManager from "@/components/match/ProjectManager";
 import TransfermarktImporter from "@/components/match/TransfermarktImporter";
-import PlayerListTables from "@/components/match/PlayerListTables";
-import { Button } from "@/components/ui/button";
-import { ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
 
 const defaultMatch: MatchData = {
@@ -66,66 +63,10 @@ const Partidos: React.FC<PartidosProps> = ({
     }));
   };
 
-  const pasteFromCampograma = (team: "home" | "away") => {
-    if (campogramaPlayers.length === 0) {
-      toast.error("No hay jugadores cargados en Campograma. Cargá jugadores primero.");
-      return;
-    }
-
-    const matchPlayers = campogramaPlayers.map((p, i) => ({
-      id: crypto.randomUUID(),
-      number: p.number,
-      name: p.name,
-      isStarter: i < 11,
-      team,
-      events: [],
-    }));
-
-    // Merge with existing players of the OTHER team
-    const otherTeamPlayers = match.players.filter((p) => p.team !== team);
-    const colors = team === "home"
-      ? { homeColor1: campogramaColor1, homeColor2: campogramaColor2 }
-      : { awayColor1: campogramaColor1, awayColor2: campogramaColor2 };
-
-    setMatch((prev) => ({
-      ...prev,
-      ...colors,
-      players: [...otherTeamPlayers, ...matchPlayers],
-    }));
-
-    toast.success(
-      `${campogramaPlayers.length} jugadores pegados como ${team === "home" ? "Local" : "Visitante"}`
-    );
-  };
-
   return (
     <div className="space-y-8">
       <TransfermarktImporter onImport={handleImport} />
-
-      {/* Paste from Campograma */}
-      {campogramaPlayers.length > 0 && (
-        <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card">
-          <ClipboardPaste className="w-5 h-5 text-muted-foreground" />
-          <span className="text-sm text-foreground">
-            Pegar {campogramaPlayers.length} jugadores de Campograma como:
-          </span>
-          <Button size="sm" variant="outline" onClick={() => pasteFromCampograma("home")}>
-            Equipo Local
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => pasteFromCampograma("away")}>
-            Equipo Visitante
-          </Button>
-        </div>
-      )}
-
       <ProjectManager currentMatch={match} onLoad={handleLoadMatch} />
-
-      <PlayerListTables
-        players={match.players}
-        homeTeam={match.homeTeam}
-        awayTeam={match.awayTeam}
-      />
-
       <MatchForm match={match} onChange={setMatch} />
       <MatchPlate match={match} onPlayersChange={handlePlayersChange} onFormationChange={handleFormationChange} />
     </div>

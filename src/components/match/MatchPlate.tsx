@@ -77,6 +77,8 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showHomeSubs, setShowHomeSubs] = useState(true);
   const [showAwaySubs, setShowAwaySubs] = useState(true);
+  const [showHomeRoster, setShowHomeRoster] = useState(true);
+  const [showAwayRoster, setShowAwayRoster] = useState(true);
 
   const applyFormation = useCallback((formation: string) => {
     const homeStarters = match.players.filter(p => p.team === "home" && p.isStarter);
@@ -265,6 +267,74 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
     </div>
   );
 
+  const RosterTable: React.FC<{ players: MatchPlayer[]; teamLabel: string; color: string }> = ({ players: teamPlayers, teamLabel, color }) => {
+    const starters = teamPlayers.filter(p => p.isStarter);
+    const subs = teamPlayers.filter(p => !p.isStarter);
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <div
+          style={{
+            fontFamily: "'Bebas Neue', sans-serif",
+            fontSize: 20,
+            letterSpacing: "2px",
+            fontWeight: 700,
+            color,
+            marginBottom: 6,
+            fontStyle: "italic",
+          }}
+        >
+          {teamLabel}
+        </div>
+        {starters.length > 0 && (
+          <>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "#555", letterSpacing: "1.5px", marginBottom: 4 }}>
+              TITULARES ({starters.length})
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Bebas Neue', sans-serif", marginBottom: 10 }}>
+              <thead>
+                <tr>
+                  <th style={{ background: "#333", color: "#fff", padding: "4px 10px", textAlign: "left", fontSize: 14, width: 60 }}>Nº</th>
+                  <th style={{ background: "#333", color: "#fff", padding: "4px 10px", textAlign: "left", fontSize: 14 }}>NOMBRE</th>
+                </tr>
+              </thead>
+              <tbody>
+                {starters.map(p => (
+                  <tr key={p.id} style={{ borderBottom: "1px solid #ddd" }}>
+                    <td style={{ padding: "3px 10px", color: "#333", fontSize: 16, fontWeight: 700 }}>{p.number}</td>
+                    <td style={{ padding: "3px 10px", color: "#333", fontSize: 16 }}>{p.name}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+        {subs.length > 0 && (
+          <>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "#888", letterSpacing: "1.5px", marginBottom: 4 }}>
+              SUPLENTES ({subs.length})
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Bebas Neue', sans-serif" }}>
+              <thead>
+                <tr>
+                  <th style={{ background: "#555", color: "#fff", padding: "4px 10px", textAlign: "left", fontSize: 14, width: 60 }}>Nº</th>
+                  <th style={{ background: "#555", color: "#fff", padding: "4px 10px", textAlign: "left", fontSize: 14 }}>NOMBRE</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subs.map(p => (
+                  <tr key={p.id} style={{ borderBottom: "1px solid #eee" }}>
+                    <td style={{ padding: "3px 10px", color: "#666", fontSize: 16, fontWeight: 700 }}>{p.number}</td>
+                    <td style={{ padding: "3px 10px", color: "#666", fontSize: 16 }}>{p.name}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -299,13 +369,26 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
           </div>
 
           {/* Subs visibility toggles */}
-          <div className="flex items-center gap-3 px-2">
+          <div className="flex items-center gap-3 px-2 border-l border-border pl-3">
+            <span className="text-xs text-muted-foreground font-semibold">Cambios:</span>
             <label className="flex items-center gap-1 text-xs cursor-pointer">
               <Checkbox checked={showHomeSubs} onCheckedChange={(v) => setShowHomeSubs(!!v)} className="w-3.5 h-3.5" />
               {match.homeTeam || "Local"}
             </label>
             <label className="flex items-center gap-1 text-xs cursor-pointer">
               <Checkbox checked={showAwaySubs} onCheckedChange={(v) => setShowAwaySubs(!!v)} className="w-3.5 h-3.5" />
+              {match.awayTeam || "Visitante"}
+            </label>
+          </div>
+          {/* Roster visibility toggles */}
+          <div className="flex items-center gap-3 px-2 border-l border-border pl-3">
+            <span className="text-xs text-muted-foreground font-semibold">Plantel:</span>
+            <label className="flex items-center gap-1 text-xs cursor-pointer">
+              <Checkbox checked={showHomeRoster} onCheckedChange={(v) => setShowHomeRoster(!!v)} className="w-3.5 h-3.5" />
+              {match.homeTeam || "Local"}
+            </label>
+            <label className="flex items-center gap-1 text-xs cursor-pointer">
+              <Checkbox checked={showAwayRoster} onCheckedChange={(v) => setShowAwayRoster(!!v)} className="w-3.5 h-3.5" />
               {match.awayTeam || "Visitante"}
             </label>
           </div>
@@ -492,8 +575,8 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             ))}
           </svg>
 
-          {/* Substitutions tables - grouped by team */}
-          <div className="absolute" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w }}>
+          {/* Substitutions & Roster tables - grouped by team */}
+          <div className="absolute overflow-y-auto" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w, maxHeight: SUBS_AREA.h }}>
             <div
               style={{
                 fontFamily: "'Bebas Neue', sans-serif",
@@ -516,9 +599,44 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
               <SubsTable subs={awaySubs} teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"} color="#555" />
             )}
 
-            {/* Unassigned subs (legacy data) */}
             {unassignedSubs.length > 0 && (showHomeSubs || showAwaySubs) && (
               <SubsTable subs={unassignedSubs} teamLabel="SIN EQUIPO" color="#999" />
+            )}
+
+            {/* Roster tables */}
+            {(showHomeRoster || showAwayRoster) && match.players.length > 0 && (
+              <>
+                <div
+                  style={{
+                    fontFamily: "'Bebas Neue', sans-serif",
+                    fontSize: 22,
+                    letterSpacing: "3px",
+                    fontWeight: 700,
+                    color: "#333",
+                    marginBottom: 12,
+                    marginTop: 16,
+                    fontStyle: "italic",
+                  }}
+                >
+                  PLANTEL
+                </div>
+
+                {showHomeRoster && (
+                  <RosterTable
+                    players={match.players.filter(p => p.team === "home")}
+                    teamLabel={match.homeTeam?.toUpperCase() || "LOCAL"}
+                    color="#333"
+                  />
+                )}
+
+                {showAwayRoster && (
+                  <RosterTable
+                    players={match.players.filter(p => p.team === "away")}
+                    teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"}
+                    color="#555"
+                  />
+                )}
+              </>
             )}
           </div>
 
