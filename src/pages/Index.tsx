@@ -166,7 +166,11 @@ const Index: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="partidos">
-            <Partidos />
+            <Partidos
+              campogramaPlayers={players}
+              campogramaColor1={color1}
+              campogramaColor2={color2}
+            />
           </TabsContent>
         </Tabs>
       </main>
