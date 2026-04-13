@@ -575,8 +575,8 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             ))}
           </svg>
 
-          {/* Substitutions tables - grouped by team */}
-          <div className="absolute" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w }}>
+          {/* Substitutions & Roster tables - grouped by team */}
+          <div className="absolute overflow-y-auto" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w, maxHeight: SUBS_AREA.h }}>
             <div
               style={{
                 fontFamily: "'Bebas Neue', sans-serif",
@@ -599,9 +599,44 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
               <SubsTable subs={awaySubs} teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"} color="#555" />
             )}
 
-            {/* Unassigned subs (legacy data) */}
             {unassignedSubs.length > 0 && (showHomeSubs || showAwaySubs) && (
               <SubsTable subs={unassignedSubs} teamLabel="SIN EQUIPO" color="#999" />
+            )}
+
+            {/* Roster tables */}
+            {(showHomeRoster || showAwayRoster) && match.players.length > 0 && (
+              <>
+                <div
+                  style={{
+                    fontFamily: "'Bebas Neue', sans-serif",
+                    fontSize: 22,
+                    letterSpacing: "3px",
+                    fontWeight: 700,
+                    color: "#333",
+                    marginBottom: 12,
+                    marginTop: 16,
+                    fontStyle: "italic",
+                  }}
+                >
+                  PLANTEL
+                </div>
+
+                {showHomeRoster && (
+                  <RosterTable
+                    players={match.players.filter(p => p.team === "home")}
+                    teamLabel={match.homeTeam?.toUpperCase() || "LOCAL"}
+                    color="#333"
+                  />
+                )}
+
+                {showAwayRoster && (
+                  <RosterTable
+                    players={match.players.filter(p => p.team === "away")}
+                    teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"}
+                    color="#555"
+                  />
+                )}
+              </>
             )}
           </div>
 
