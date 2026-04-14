@@ -5,13 +5,14 @@ import Campograma from "@/components/Campograma";
 import ColorPicker from "@/components/ColorPicker";
 import PlayerCard from "@/components/PlayerCard";
 import Partidos from "@/pages/Partidos";
-import { Shirt, Download, CheckSquare } from "lucide-react";
+import { Shirt, Download, CheckSquare, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toPng } from "html-to-image";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { toast } from "sonner";
 
 const Index: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -20,6 +21,7 @@ const Index: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
+  const [copiedPlayers, setCopiedPlayers] = useState<Player[]>([]);
   const exportContainerRef = useRef<HTMLDivElement>(null);
 
   const playersToExport = selectMode
@@ -37,6 +39,16 @@ const Index: React.FC = () => {
 
   const selectAll = () => setSelectedIds(new Set(players.map((p) => p.id)));
   const selectNone = () => setSelectedIds(new Set());
+
+  const copySelectedToPaste = () => {
+    const selected = players.filter((p) => selectedIds.has(p.id));
+    if (selected.length === 0) {
+      toast.error("Seleccioná al menos un jugador para copiar");
+      return;
+    }
+    setCopiedPlayers(selected);
+    toast.success(`${selected.length} formas copiadas. Andá a la pestaña Partidos para pegarlas.`);
+  };
 
   const exportCards = useCallback(async () => {
     if (playersToExport.length === 0) return;
@@ -118,6 +130,12 @@ const Index: React.FC = () => {
                   <CheckSquare className="w-4 h-4" />
                   {selectMode ? "Cancelar selección" : "Seleccionar formas"}
                 </Button>
+                {selectMode && (
+                  <Button size="sm" variant="secondary" onClick={copySelectedToPaste} disabled={selectedIds.size === 0} className="gap-1.5">
+                    <Copy className="w-4 h-4" />
+                    Copiar {selectedIds.size} para Partidos
+                  </Button>
+                )}
                 <Button size="sm" onClick={exportCards} disabled={exporting || playersToExport.length === 0} className="gap-1.5">
                   <Download className="w-4 h-4" />
                   {exporting ? "Exportando..." : selectMode ? `Exportar ${selectedIds.size} forma(s)` : "Exportar todas (ZIP)"}
@@ -130,7 +148,7 @@ const Index: React.FC = () => {
               <div className="rounded-lg border border-border bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-foreground">
-                    Seleccioná las formas a exportar ({selectedIds.size}/{players.length})
+                    Seleccioná las formas a exportar/copiar ({selectedIds.size}/{players.length})
                   </span>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="sm" onClick={selectAll}>Todas</Button>
@@ -170,6 +188,8 @@ const Index: React.FC = () => {
               campogramaPlayers={players}
               campogramaColor1={color1}
               campogramaColor2={color2}
+              copiedCampogramaPlayers={copiedPlayers}
+              onClearCopied={() => setCopiedPlayers([])}
             />
           </TabsContent>
         </Tabs>

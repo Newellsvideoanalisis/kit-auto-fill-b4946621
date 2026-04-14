@@ -42,4 +42,6 @@ export interface MatchData {
   formation: string;
   players: MatchPlayer[];
   substitutions: Substitution[];
+  homeBadge?: string;
+  awayBadge?: string;
 }
