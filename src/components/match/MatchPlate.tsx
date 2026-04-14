@@ -3,12 +3,13 @@ import { MatchData, MatchPlayer } from "@/types/match";
 import MatchPlayerMarker from "./MatchPlayerMarker";
 import { toPng } from "html-to-image";
 import { Button } from "@/components/ui/button";
-import { Download, CheckSquare, LayoutGrid } from "lucide-react";
+import { Download, CheckSquare, LayoutGrid, Copy, ClipboardPaste } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { FORMATION_OPTIONS, getFormationPositions } from "@/lib/formations";
+import { toast } from "sonner";
 
 interface Props {
   match: MatchData;
@@ -79,6 +80,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
   const [showAwaySubs, setShowAwaySubs] = useState(true);
   const [showHomeRoster, setShowHomeRoster] = useState(true);
   const [showAwayRoster, setShowAwayRoster] = useState(true);
+  const [copiedMarkers, setCopiedMarkers] = useState<MatchPlayer[]>([]);
 
   const applyFormation = useCallback((formation: string) => {
     const homeStarters = match.players.filter(p => p.team === "home" && p.isStarter);
@@ -212,6 +214,28 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
     setSelectedIds(new Set());
   };
 
+  const copySelectedMarkers = () => {
+    const selected = match.players.filter(p => selectedIds.has(p.id));
+    if (selected.length === 0) {
+      toast.error("Seleccioná al menos una forma para copiar");
+      return;
+    }
+    setCopiedMarkers(selected);
+    toast.success(`${selected.length} formas copiadas. Hacé clic en "Pegar" para duplicarlas.`);
+  };
+
+  const pasteMarkers = () => {
+    if (copiedMarkers.length === 0) return;
+    const newPlayers = copiedMarkers.map(p => ({
+      ...p,
+      id: crypto.randomUUID(),
+      x: (p.x || 0) + 30,
+      y: (p.y || 0) + 30,
+    }));
+    onPlayersChange([...match.players, ...newPlayers]);
+    toast.success(`${newPlayers.length} formas pegadas (duplicadas)`);
+  };
+
   const homeColor1 = match.homeColor1;
   const homeColor2 = match.homeColor2;
   const awayColor1 = match.awayColor1;
@@ -253,7 +277,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
         <tbody>
           {subs.map((sub) => (
             <tr key={sub.id} style={{ borderBottom: "1px solid #ddd" }}>
-              <td style={{ padding: "5px 12px", color: "#333", fontSize: 18, fontWeight: 700 }}>{sub.minuteIn}'</td>
+              <td style={{ padding: "5px 12px", color: "#333", fontSize: 18, fontWeight: 700 }}>{sub.minuteIn ? `${sub.minuteIn}'` : "—"}</td>
               <td style={{ padding: "5px 12px", color: "#16a34a", fontSize: 18, fontWeight: 600 }}>
                 {sub.playerInNumber} {sub.playerIn}
               </td>
@@ -404,17 +428,35 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             disabled={match.players.length === 0}
           >
             <CheckSquare className="w-4 h-4" />
-            {selectMode ? "Cancelar" : "Seleccionar formas"}
+            {selectMode ? "Cancelar" : "Seleccionar"}
           </Button>
           {selectMode && (
-            <Button size="sm" onClick={exportSelected} disabled={selectedIds.size === 0} className="gap-1.5">
-              <Download className="w-4 h-4" />
-              Exportar {selectedIds.size} forma(s)
+            <>
+              <Button size="sm" variant="secondary" onClick={copySelectedMarkers} disabled={selectedIds.size === 0} className="gap-1.5">
+                <Copy className="w-4 h-4" />
+                Copiar {selectedIds.size}
+              </Button>
+              {copiedMarkers.length > 0 && (
+                <Button size="sm" variant="secondary" onClick={pasteMarkers} className="gap-1.5">
+                  <ClipboardPaste className="w-4 h-4" />
+                  Pegar ({copiedMarkers.length})
+                </Button>
+              )}
+              <Button size="sm" onClick={exportSelected} disabled={selectedIds.size === 0} className="gap-1.5">
+                <Download className="w-4 h-4" />
+                Exportar {selectedIds.size}
+              </Button>
+            </>
+          )}
+          {!selectMode && copiedMarkers.length > 0 && (
+            <Button size="sm" variant="secondary" onClick={pasteMarkers} className="gap-1.5">
+              <ClipboardPaste className="w-4 h-4" />
+              Pegar ({copiedMarkers.length})
             </Button>
           )}
           <Button size="sm" onClick={exportPlate} className="gap-1.5">
             <Download className="w-4 h-4" />
-            Exportar Placa PNG
+            Exportar Placa
           </Button>
         </div>
       </div>
@@ -481,16 +523,34 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
               clipPath: "polygon(0 0, 100% 0, 93% 100%, 0 100%)",
             }}
           >
-            <div className="flex items-center h-full px-8">
+            <div className="flex items-center h-full px-8 gap-4">
+              {/* Home badge */}
+              {match.homeBadge && (
+                <img
+                  src={match.homeBadge}
+                  alt=""
+                  style={{ height: 40, width: 40, objectFit: "contain" }}
+                  crossOrigin="anonymous"
+                />
+              )}
               <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: "3px", fontWeight: 700, fontStyle: "italic" }}>
                 {match.homeTeam?.toUpperCase() || "LOCAL"}
               </span>
-              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: "3px", fontWeight: 700, fontStyle: "italic", margin: "0 20px", opacity: 0.5 }}>
+              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: "3px", fontWeight: 700, fontStyle: "italic", margin: "0 12px", opacity: 0.5 }}>
                 VS
               </span>
               <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: "3px", fontWeight: 700, fontStyle: "italic" }}>
                 {match.awayTeam?.toUpperCase() || "VISITANTE"}
               </span>
+              {/* Away badge */}
+              {match.awayBadge && (
+                <img
+                  src={match.awayBadge}
+                  alt=""
+                  style={{ height: 40, width: 40, objectFit: "contain", marginLeft: 8 }}
+                  crossOrigin="anonymous"
+                />
+              )}
             </div>
           </div>
 
@@ -575,7 +635,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             ))}
           </svg>
 
-          {/* Substitutions & Roster tables - grouped by team */}
+          {/* Substitutions & Roster tables */}
           <div className="absolute overflow-y-auto" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w, maxHeight: SUBS_AREA.h }}>
             <div
               style={{
@@ -667,7 +727,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Seleccioná una formación y hacé clic en "Aplicar" para posicionar. Arrastrá jugadores para ajustar. Usá las casillas para mostrar/ocultar cambios por equipo.
+        Seleccioná formas, copialas y pegalas para duplicarlas en las ventanas. Usá las casillas para mostrar/ocultar cambios y plantel por equipo.
       </p>
     </div>
   );
