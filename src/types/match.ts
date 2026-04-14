@@ -1,3 +1,8 @@
+export interface MatchEvent {
+  type: "goal" | "yellow_card" | "red_card" | "substitution_in" | "substitution_out";
+  minute: string;
+}
+
 export interface MatchPlayer {
   id: string;
   number: string;
@@ -7,11 +12,11 @@ export interface MatchPlayer {
   events: MatchEvent[];
   x?: number;
   y?: number;
-}
-
-export interface MatchEvent {
-  type: "goal" | "yellow_card" | "red_card" | "substitution_out" | "substitution_in";
-  minute: string;
+  // Datos preservados desde Campograma para formas completas
+  birthDate?: string;
+  height?: string;
+  foot?: string;
+  position?: string;
 }
 
 export interface Substitution {
@@ -33,6 +38,8 @@ export interface MatchData {
   homeColor2: string;
   awayColor1: string;
   awayColor2: string;
+  homeBadge?: string;
+  awayBadge?: string;
   tournament: string;
   matchday: string;
   date: string;
@@ -42,6 +49,4 @@ export interface MatchData {
   formation: string;
   players: MatchPlayer[];
   substitutions: Substitution[];
-  homeBadge?: string;
-  awayBadge?: string;
 }
