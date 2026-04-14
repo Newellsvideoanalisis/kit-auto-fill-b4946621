@@ -6,6 +6,8 @@ import MatchPlate from "@/components/match/MatchPlate";
 import ProjectManager from "@/components/match/ProjectManager";
 import TransfermarktImporter from "@/components/match/TransfermarktImporter";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { ClipboardPaste } from "lucide-react";
 
 const defaultMatch: MatchData = {
   homeTeam: "",
@@ -31,12 +33,16 @@ interface PartidosProps {
   campogramaPlayers?: Player[];
   campogramaColor1?: string;
   campogramaColor2?: string;
+  copiedCampogramaPlayers?: Player[];
+  onClearCopied?: () => void;
 }
 
 const Partidos: React.FC<PartidosProps> = ({
   campogramaPlayers = [],
   campogramaColor1 = "#0f3460",
   campogramaColor2 = "#1a1a2e",
+  copiedCampogramaPlayers = [],
+  onClearCopied,
 }) => {
   const [match, setMatch] = useState<MatchData>(defaultMatch);
 
@@ -63,10 +69,53 @@ const Partidos: React.FC<PartidosProps> = ({
     }));
   };
 
+  const pasteCampogramaAsTeam = (team: "home" | "away") => {
+    if (copiedCampogramaPlayers.length === 0) {
+      toast.error("No hay formas copiadas desde Campograma. Seleccioná y copiá jugadores primero.");
+      return;
+    }
+    const newPlayers = copiedCampogramaPlayers.map((p, i) => ({
+      id: crypto.randomUUID(),
+      number: p.number || "",
+      name: p.name || "",
+      isStarter: i < 11,
+      team,
+      events: [],
+    }));
+    setMatch((prev) => ({
+      ...prev,
+      players: [...prev.players.filter(pp => pp.team !== team), ...newPlayers],
+    }));
+    toast.success(`${newPlayers.length} jugadores pegados como ${team === "home" ? "Local" : "Visitante"}`);
+    onClearCopied?.();
+  };
+
   return (
     <div className="space-y-8">
       <TransfermarktImporter onImport={handleImport} />
       <ProjectManager currentMatch={match} onLoad={handleLoadMatch} />
+
+      {/* Paste from Campograma */}
+      {copiedCampogramaPlayers.length > 0 && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-center justify-between">
+          <span className="text-sm text-foreground">
+            <ClipboardPaste className="w-4 h-4 inline mr-2" />
+            {copiedCampogramaPlayers.length} formas copiadas desde Campograma
+          </span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => pasteCampogramaAsTeam("home")} className="text-xs h-7">
+              Pegar como Local
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => pasteCampogramaAsTeam("away")} className="text-xs h-7">
+              Pegar como Visitante
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onClearCopied} className="text-xs h-7">
+              Descartar
+            </Button>
+          </div>
+        </div>
+      )}
+
       <MatchForm match={match} onChange={setMatch} />
       <MatchPlate match={match} onPlayersChange={handlePlayersChange} onFormationChange={handleFormationChange} />
     </div>
