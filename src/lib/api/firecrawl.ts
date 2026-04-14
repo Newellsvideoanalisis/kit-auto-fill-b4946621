@@ -5,6 +5,7 @@ type FirecrawlResponse<T = any> = {
   error?: string;
   data?: T;
   markdown?: string;
+  html?: string;
 };
 
 export const firecrawlApi = {
