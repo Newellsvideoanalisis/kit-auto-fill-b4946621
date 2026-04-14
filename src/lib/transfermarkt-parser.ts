@@ -1,6 +1,6 @@
 import { MatchData, MatchPlayer, MatchEvent, Substitution } from "@/types/match";
 
-export function parseTransfermarktMarkdown(markdown: string): Partial<MatchData> {
+export function parseTransfermarktMarkdown(markdown: string, html?: string): Partial<MatchData> {
   const result: Partial<MatchData> = {
     players: [],
     substitutions: [],
@@ -13,6 +13,16 @@ export function parseTransfermarktMarkdown(markdown: string): Partial<MatchData>
     result.awayTeam = titleMatch[2].trim();
   }
 
+  // Extract team badges from markdown - look for wappen images near team names
+  const badgePattern = /\[\!\[([^\]]*)\]\((https:\/\/tmssl\.akamaized\.net\/\/images\/wappen\/normquad\/[^)]+)\)\]/g;
+  const badges: { name: string; url: string }[] = [];
+  let bm;
+  while ((bm = badgePattern.exec(markdown)) !== null) {
+    badges.push({ name: bm[1], url: bm[2] });
+  }
+  if (badges.length >= 1) result.homeBadge = badges[0].url;
+  if (badges.length >= 2) result.awayBadge = badges[1].url;
+
   // Extract score
   const scoreMatch = markdown.match(/\n(\d+):(\d+)\n/);
   if (scoreMatch) {
@@ -20,8 +30,7 @@ export function parseTransfermarktMarkdown(markdown: string): Partial<MatchData>
     result.awayScore = scoreMatch[2];
   }
 
-  // Extract matchday - look for patterns like "14. Jornada", "14.Jornada", "Jornada 14", "1. Spieltag", "Fecha 14"
-  // Also handles: "14. jornada" at the start or anywhere in text
+  // Extract matchday
   const matchdayPatterns = [
     /(\d+)\.\s*Jornada/i,
     /(\d+)\.\s*Spieltag/i,
@@ -30,7 +39,6 @@ export function parseTransfermarktMarkdown(markdown: string): Partial<MatchData>
     /Jornada\s*(\d+)/i,
     /Fecha\s*(\d+)/i,
     /Matchday\s*(\d+)/i,
-    /(\d+)(?:st|nd|rd|th)?\s*(?:Jornada|Spieltag|Matchday|Fecha)/i,
   ];
   for (const pattern of matchdayPatterns) {
     const m = markdown.match(pattern);
@@ -41,7 +49,7 @@ export function parseTransfermarktMarkdown(markdown: string): Partial<MatchData>
     }
   }
 
-  // Extract date - look for DD/MM/YYYY or DD/MM/YY patterns, also DD.MM.YYYY
+  // Extract date
   const datePatterns = [
     /(\d{2}\/\d{2}\/\d{2,4})/,
     /(\d{2}\.\d{2}\.\d{2,4})/,
@@ -98,8 +106,8 @@ export function parseTransfermarktMarkdown(markdown: string): Partial<MatchData>
   parseGoals(markdown, result.players);
   parseCards(markdown, result.players);
 
-  // Parse substitutions with team assignment
-  result.substitutions = parseSubstitutions(markdown, result.homeTeam, result.awayTeam, result.players);
+  // Parse substitutions - try HTML first for minutes, then fallback to markdown
+  result.substitutions = parseSubstitutions(markdown, html, result.homeTeam, result.awayTeam, result.players);
 
   return result;
 }
@@ -139,6 +147,7 @@ function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[]
   const startersSection = benchIdx > -1 ? section.substring(0, benchIdx) : section;
   const benchSection = benchIdx > -1 ? section.substring(benchIdx) : "";
 
+  // Starters: number on its own line followed by [Name](link)
   const starterPattern = /\n(\d+)\n\n\[([^\]]+)\]/g;
   let match;
 
@@ -153,6 +162,7 @@ function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[]
     });
   }
 
+  // Bench players in table format
   const benchTablePattern = /\|\s*(\d+)\s*\|\s*\[([^\]]+)\]/g;
   while ((match = benchTablePattern.exec(benchSection)) !== null) {
     players.push({
@@ -165,6 +175,7 @@ function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[]
     });
   }
 
+  // Fallback: table format for starters too
   if (players.filter(p => p.isStarter).length === 0) {
     const tablePattern = /\|\s*(\d+)\s*\|\s*\[([^\]]+)\]/g;
     while ((match = tablePattern.exec(startersSection)) !== null) {
@@ -231,96 +242,99 @@ function parseCardsFromSection(section: string, players: MatchPlayer[]) {
 
 function parseSubstitutions(
   markdown: string,
+  html: string | undefined,
   homeTeam?: string,
   awayTeam?: string,
   players?: MatchPlayer[]
 ): Substitution[] {
   const subs: Substitution[] = [];
+
+  // Try to extract minutes from HTML if available
+  const minutesFromHtml = html ? extractMinutesFromHtml(html) : [];
+
   const subsSection = extractSection(markdown, "## Cambios", "## Amonestaciones");
   if (!subsSection) return subs;
 
-  // Multiple patterns for substitution minutes:
-  // Pattern 1: "**minute'**" followed by two player links
-  // Pattern 2: Clock icon image with minute as alt text: "![68'](..." or text near image
-  // Pattern 3: Standalone number followed by "'" near player links
-  // Pattern 4: minute in text like "68'" before player names
-  
-  // Try comprehensive pattern: any number followed by ' (apostrophe) near player links
-  const subPatterns = [
-    // **minute'** [PlayerIn](...)[PlayerOut](...)
-    /(?:\*\*)?(\d+)'?\*?\*?[^[]*\[([^\]]+)\]\([^)]*leistungsdatendetails[^)]*\)[^[]*\[([^\]]+)\]\([^)]*leistungsdatendetails[^)]*\)/g,
-    // minute' with optional image/icon: "![68'](..." or just "68'" 
-    /!\[(\d+)'\]\([^)]*\)[^[]*\[([^\]]+)\]\([^)]*leistungsdatendetails[^)]*\)[^[]*\[([^\]]+)\]\([^)]*leistungsdatendetails[^)]*\)/g,
-    // Table format: | minute | playerIn | playerOut |
-    /\|\s*(\d+)'\s*\|[^|]*\[([^\]]+)\]\([^)]*\)[^|]*\|[^|]*\[([^\]]+)\]\([^)]*\)/g,
-  ];
-
+  // Pattern: two consecutive leistungsdatendetails links = playerIn + playerOut
+  const subPattern = /\[([^\]]+)\]\([^)]*leistungsdatendetails[^)]*\)\s*\[([^\]]+)\]\([^)]*leistungsdatendetails[^)]*\)/g;
   let match;
-  const processedPairs = new Set<string>();
+  let subIndex = 0;
 
-  for (const pattern of subPatterns) {
-    pattern.lastIndex = 0;
-    while ((match = pattern.exec(subsSection)) !== null) {
-      const minuteIn = match[1];
-      const playerIn = match[2].trim();
-      const playerOut = match[3].trim();
-      
-      const pairKey = `${playerIn}-${playerOut}`;
-      if (processedPairs.has(pairKey)) continue;
-      processedPairs.add(pairKey);
+  while ((match = subPattern.exec(subsSection)) !== null) {
+    const playerIn = match[1].trim();
+    const playerOut = match[2].trim();
 
-      let team: "home" | "away" | undefined;
-      if (players) {
-        const outPlayer = findPlayerByName(players, playerOut);
-        if (outPlayer) team = outPlayer.team;
-        else {
-          const inPlayer = findPlayerByName(players, playerIn);
-          if (inPlayer) team = inPlayer.team;
-        }
+    let team: "home" | "away" | undefined;
+    if (players) {
+      const outPlayer = findPlayerByName(players, playerOut);
+      if (outPlayer) team = outPlayer.team;
+      else {
+        const inPlayer = findPlayerByName(players, playerIn);
+        if (inPlayer) team = inPlayer.team;
       }
-
-      const inPlayer = players ? findPlayerByName(players, playerIn) : undefined;
-      const outPlayerObj = players ? findPlayerByName(players, playerOut) : undefined;
-
-      subs.push({
-        id: crypto.randomUUID(),
-        minuteIn,
-        playerIn,
-        playerInNumber: inPlayer?.number || "",
-        playerOut,
-        playerOutNumber: outPlayerObj?.number || "",
-        team,
-      });
     }
-    if (subs.length > 0) break;
-  }
 
-  // Fallback: two player links without minutes
-  if (subs.length === 0) {
-    const subPattern = /\[([^\]]+)\]\([^)]*leistungsdatendetails[^)]*\)\s*\[([^\]]+)\]\([^)]*leistungsdatendetails[^)]*\)/g;
-    while ((match = subPattern.exec(subsSection)) !== null) {
-      const playerIn = match[1].trim();
-      const playerOut = match[2].trim();
+    const inPlayer = players ? findPlayerByName(players, playerIn) : undefined;
+    const outPlayerObj = players ? findPlayerByName(players, playerOut) : undefined;
 
-      let team: "home" | "away" | undefined;
-      if (players) {
-        const outPlayer = findPlayerByName(players, playerOut);
-        if (outPlayer) team = outPlayer.team;
-      }
-
-      subs.push({
-        id: crypto.randomUUID(),
-        minuteIn: "",
-        playerIn,
-        playerInNumber: "",
-        playerOut,
-        playerOutNumber: "",
-        team,
-      });
+    // Get minute from HTML extraction, validate it's 1-120
+    let minuteIn = minutesFromHtml[subIndex] || "";
+    const minNum = parseInt(minuteIn);
+    if (isNaN(minNum) || minNum < 1 || minNum > 120) {
+      minuteIn = "";
     }
+
+    subs.push({
+      id: crypto.randomUUID(),
+      minuteIn,
+      playerIn,
+      playerInNumber: inPlayer?.number || "",
+      playerOut,
+      playerOutNumber: outPlayerObj?.number || "",
+      team,
+    });
+    subIndex++;
   }
 
   return subs;
+}
+
+function extractMinutesFromHtml(html: string): string[] {
+  const minutes: string[] = [];
+
+  // In Transfermarkt HTML, substitution minutes appear in elements like:
+  // <span class="sb-aktion-uhr">68'</span> or similar clock elements
+  // Also: title="68'" or alt="68'" in clock icons
+  // Pattern: look for minute indicators near substitution sections
+
+  // Try multiple patterns
+  const patterns = [
+    // Clock icon with minute as text content: >68'<
+    /class="[^"]*(?:uhr|clock|minute)[^"]*"[^>]*>(\d{1,3})['′]?</gi,
+    // Alt text with minute: alt="68'"
+    /alt="(\d{1,3})['′]?"[^>]*class="[^"]*(?:uhr|clock)/gi,
+    // Span with minute near substitution: >68'<
+    /sb-aktion-uhr[^>]*>[\s\S]*?(\d{1,3})['′]?/gi,
+    // Generic minute in substitution context
+    /<(?:span|div)[^>]*class="[^"]*(?:sb-sprite-wechsel-uhr|sb-aktion-uhr|icon-sub-clock)[^"]*"[^>]*>[\s]*(\d{1,3})/gi,
+    // Data attribute or title
+    /data-minute="(\d{1,3})"/gi,
+  ];
+
+  for (const pattern of patterns) {
+    const matches = [...html.matchAll(pattern)];
+    if (matches.length > 0) {
+      for (const m of matches) {
+        const min = parseInt(m[1]);
+        if (min >= 1 && min <= 120) {
+          minutes.push(m[1]);
+        }
+      }
+      if (minutes.length > 0) break;
+    }
+  }
+
+  return minutes;
 }
 
 function extractSection(markdown: string, startHeader: string, endHeader: string): string {

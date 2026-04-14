@@ -28,8 +28,9 @@ const TransfermarktImporter: React.FC<Props> = ({ onImport }) => {
 
     setLoading(true);
     try {
+      // Fetch both markdown and HTML to extract minutes from HTML
       const response = await firecrawlApi.scrape(url, {
-        formats: ["markdown"],
+        formats: ["markdown", "html"],
         onlyMainContent: true,
         waitFor: 2000,
       });
@@ -40,12 +41,14 @@ const TransfermarktImporter: React.FC<Props> = ({ onImport }) => {
       }
 
       const markdown = response.data?.markdown || response.markdown;
+      const html = response.data?.html || response.html;
+      
       if (!markdown) {
         toast.error("No se pudo extraer contenido de la página");
         return;
       }
 
-      const parsed = parseTransfermarktMarkdown(markdown);
+      const parsed = parseTransfermarktMarkdown(markdown, html);
 
       if (!parsed.homeTeam && !parsed.awayTeam) {
         toast.error("No se pudieron identificar los equipos. Verificá la URL.");
