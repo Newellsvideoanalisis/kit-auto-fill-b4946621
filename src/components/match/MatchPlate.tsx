@@ -3,7 +3,7 @@ import { MatchData, MatchPlayer } from "@/types/match";
 import MatchPlayerMarker from "./MatchPlayerMarker";
 import { toPng } from "html-to-image";
 import { Button } from "@/components/ui/button";
-import { Download, CheckSquare, LayoutGrid, Copy, ClipboardPaste } from "lucide-react";
+import { Download, CheckSquare, LayoutGrid, Copy, ClipboardPaste, Printer } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import JSZip from "jszip";
@@ -30,6 +30,16 @@ const SMALL_FIELDS = [
 
 const SUBS_AREA = { x: 1260, y: 150, w: 630, h: 880 };
 
+/** Detecta si un jugador está posicionado en la cancha principal */
+function isInMainField(x: number, y: number): boolean {
+  return (
+    x >= MAIN_FIELD.x - 50 &&
+    x <= MAIN_FIELD.x + MAIN_FIELD.w + 50 &&
+    y >= MAIN_FIELD.y - 30 &&
+    y <= MAIN_FIELD.y + MAIN_FIELD.h + 30
+  );
+}
+
 function getContrastColor(hex: string): string {
   const c = hex.replace("#", "");
   const r = parseInt(c.substring(0, 2), 16);
@@ -54,15 +64,10 @@ const FieldSVG: React.FC<{ x: number; y: number; w: number; h: number; label?: s
     <rect x={x + w / 2 - w * 0.05} y={y + h - 4} width={w * 0.1} height="4" fill="none" stroke="#999" strokeWidth="1" rx="1" />
     {label && (
       <text
-        x={x + w / 2}
-        y={y - 8}
-        textAnchor="middle"
-        fill="#555"
-        fontSize="13"
-        fontFamily="'Bebas Neue', sans-serif"
-        letterSpacing="1.5"
-        fontWeight="700"
-        fontStyle="italic"
+        x={x + w / 2} y={y - 8}
+        textAnchor="middle" fill="#555" fontSize="13"
+        fontFamily="'Bebas Neue', sans-serif" letterSpacing="1.5"
+        fontWeight="700" fontStyle="italic"
       >
         {label}
       </text>
@@ -81,6 +86,26 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
   const [showHomeRoster, setShowHomeRoster] = useState(true);
   const [showAwayRoster, setShowAwayRoster] = useState(true);
   const [copiedMarkers, setCopiedMarkers] = useState<MatchPlayer[]>([]);
+
+  // Escape para cancelar selección
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectMode(false);
+        setSelectedIds(new Set());
+      }
+      // Cmd+C / Ctrl+C: copiar seleccionados
+      if ((e.metaKey || e.ctrlKey) && e.key === "c" && selectedIds.size > 0) {
+        copySelectedMarkers();
+      }
+      // Cmd+V / Ctrl+V: pegar
+      if ((e.metaKey || e.ctrlKey) && e.key === "v" && copiedMarkers.length > 0) {
+        pasteMarkers();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedIds, copiedMarkers]);
 
   const applyFormation = useCallback((formation: string) => {
     const homeStarters = match.players.filter(p => p.team === "home" && p.isStarter);
@@ -132,6 +157,19 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, id: string) => {
+      // Cmd+Click / Ctrl+Click → toggle selección sin arrastrar
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+        });
+        setSelectMode(true);
+        return;
+      }
+
       e.preventDefault();
       const rect = plateRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -165,6 +203,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
 
   const handleMouseUp = useCallback(() => setDragging(null), []);
 
+  // ─── EXPORTAR PNG ────────────────────────────────────────────────────────────
   const exportPlate = async () => {
     if (!plateRef.current) return;
     try {
@@ -175,6 +214,42 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
       link.click();
     } catch (err) {
       console.error("Export error:", err);
+    }
+  };
+
+  // ─── IMPRIMIR / PDF A4 ───────────────────────────────────────────────────────
+  const printPlate = async () => {
+    if (!plateRef.current) return;
+    try {
+      toast.info("Generando imagen para impresión...");
+      const dataUrl = await toPng(plateRef.current, { pixelRatio: 2, backgroundColor: "#ffffff" });
+      const win = window.open("", "_blank");
+      if (!win) {
+        toast.error("El navegador bloqueó la ventana emergente. Permitila e intentá de nuevo.");
+        return;
+      }
+      win.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${match.homeTeam || "Local"} vs ${match.awayTeam || "Visitante"}</title>
+          <style>
+            @page { size: A4 landscape; margin: 0; }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { width: 297mm; height: 210mm; display: flex; align-items: center; justify-content: center; background: #fff; }
+            img { max-width: 297mm; max-height: 210mm; width: 100%; height: auto; object-fit: contain; }
+          </style>
+        </head>
+        <body>
+          <img src="${dataUrl}" />
+          <script>window.onload = function() { window.print(); }</script>
+        </body>
+        </html>
+      `);
+      win.document.close();
+    } catch (err) {
+      console.error("Print error:", err);
+      toast.error("Error al generar imagen para impresión");
     }
   };
 
@@ -221,7 +296,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
       return;
     }
     setCopiedMarkers(selected);
-    toast.success(`${selected.length} formas copiadas. Hacé clic en "Pegar" para duplicarlas.`);
+    toast.success(`${selected.length} formas copiadas. Cmd+V o botón Pegar para duplicarlas.`);
   };
 
   const pasteMarkers = () => {
@@ -229,11 +304,11 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
     const newPlayers = copiedMarkers.map(p => ({
       ...p,
       id: crypto.randomUUID(),
-      x: (p.x || 0) + 30,
-      y: (p.y || 0) + 30,
+      x: (p.x || 0) + 40,
+      y: (p.y || 0) + 40,
     }));
     onPlayersChange([...match.players, ...newPlayers]);
-    toast.success(`${newPlayers.length} formas pegadas (duplicadas)`);
+    toast.success(`${newPlayers.length} formas pegadas`);
   };
 
   const homeColor1 = match.homeColor1;
@@ -247,43 +322,23 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
 
   const SubsTable: React.FC<{ subs: typeof match.substitutions; teamLabel: string; color: string }> = ({ subs, teamLabel, color }) => (
     <div style={{ marginBottom: 16 }}>
-      <div
-        style={{
-          fontFamily: "'Bebas Neue', sans-serif",
-          fontSize: 20,
-          letterSpacing: "2px",
-          fontWeight: 700,
-          color,
-          marginBottom: 6,
-          fontStyle: "italic",
-        }}
-      >
+      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "2px", fontWeight: 700, color, marginBottom: 6, fontStyle: "italic" }}>
         {teamLabel}
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Bebas Neue', sans-serif" }}>
         <thead>
           <tr>
-            <th style={{ background: "#333", color: "#fff", padding: "6px 12px", textAlign: "left", letterSpacing: "1.5px", fontSize: 16, width: 90 }}>
-              MIN
-            </th>
-            <th style={{ background: "#22c55e", color: "#fff", padding: "6px 12px", textAlign: "left", letterSpacing: "1.5px", fontSize: 16 }}>
-              ENTRA
-            </th>
-            <th style={{ background: "#ef4444", color: "#fff", padding: "6px 12px", textAlign: "left", letterSpacing: "1.5px", fontSize: 16 }}>
-              SALE
-            </th>
+            <th style={{ background: "#333", color: "#fff", padding: "6px 12px", textAlign: "left", letterSpacing: "1.5px", fontSize: 16, width: 90 }}>MIN</th>
+            <th style={{ background: "#22c55e", color: "#fff", padding: "6px 12px", textAlign: "left", letterSpacing: "1.5px", fontSize: 16 }}>ENTRA</th>
+            <th style={{ background: "#ef4444", color: "#fff", padding: "6px 12px", textAlign: "left", letterSpacing: "1.5px", fontSize: 16 }}>SALE</th>
           </tr>
         </thead>
         <tbody>
           {subs.map((sub) => (
             <tr key={sub.id} style={{ borderBottom: "1px solid #ddd" }}>
               <td style={{ padding: "5px 12px", color: "#333", fontSize: 18, fontWeight: 700 }}>{sub.minuteIn ? `${sub.minuteIn}'` : "—"}</td>
-              <td style={{ padding: "5px 12px", color: "#16a34a", fontSize: 18, fontWeight: 600 }}>
-                {sub.playerInNumber} {sub.playerIn}
-              </td>
-              <td style={{ padding: "5px 12px", color: "#dc2626", fontSize: 18 }}>
-                {sub.playerOutNumber} {sub.playerOut}
-              </td>
+              <td style={{ padding: "5px 12px", color: "#16a34a", fontSize: 18, fontWeight: 600 }}>{sub.playerInNumber} {sub.playerIn}</td>
+              <td style={{ padding: "5px 12px", color: "#dc2626", fontSize: 18 }}>{sub.playerOutNumber} {sub.playerOut}</td>
             </tr>
           ))}
         </tbody>
@@ -296,24 +351,12 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
     const subs = teamPlayers.filter(p => !p.isStarter);
     return (
       <div style={{ marginBottom: 16 }}>
-        <div
-          style={{
-            fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: 20,
-            letterSpacing: "2px",
-            fontWeight: 700,
-            color,
-            marginBottom: 6,
-            fontStyle: "italic",
-          }}
-        >
+        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "2px", fontWeight: 700, color, marginBottom: 6, fontStyle: "italic" }}>
           {teamLabel}
         </div>
         {starters.length > 0 && (
           <>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "#555", letterSpacing: "1.5px", marginBottom: 4 }}>
-              TITULARES ({starters.length})
-            </div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "#555", letterSpacing: "1.5px", marginBottom: 4 }}>TITULARES ({starters.length})</div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Bebas Neue', sans-serif", marginBottom: 10 }}>
               <thead>
                 <tr>
@@ -334,9 +377,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
         )}
         {subs.length > 0 && (
           <>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "#888", letterSpacing: "1.5px", marginBottom: 4 }}>
-              SUPLENTES ({subs.length})
-            </div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "#888", letterSpacing: "1.5px", marginBottom: 4 }}>SUPLENTES ({subs.length})</div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Bebas Neue', sans-serif" }}>
               <thead>
                 <tr>
@@ -361,18 +402,14 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
 
   return (
     <div className="space-y-3">
+      {/* ─── TOOLBAR ─── */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-xl font-display text-foreground tracking-wider">PLACA DEL PARTIDO</h2>
         <div className="flex gap-2 flex-wrap items-center">
+          {/* Formación */}
           <div className="flex items-center gap-1.5">
             <LayoutGrid className="w-4 h-4 text-muted-foreground" />
-            <Select
-              value={match.formation}
-              onValueChange={(v) => {
-                onFormationChange?.(v);
-                applyFormation(v);
-              }}
-            >
+            <Select value={match.formation} onValueChange={(v) => { onFormationChange?.(v); applyFormation(v); }}>
               <SelectTrigger className="w-28 h-8 text-xs">
                 <SelectValue placeholder="Formación" />
               </SelectTrigger>
@@ -382,17 +419,12 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyFormation(match.formation || "4-3-3")}
-              className="h-8 text-xs"
-            >
+            <Button variant="outline" size="sm" onClick={() => applyFormation(match.formation || "4-3-3")} className="h-8 text-xs">
               Aplicar
             </Button>
           </div>
 
-          {/* Subs visibility toggles */}
+          {/* Cambios / plantel toggles */}
           <div className="flex items-center gap-3 px-2 border-l border-border pl-3">
             <span className="text-xs text-muted-foreground font-semibold">Cambios:</span>
             <label className="flex items-center gap-1 text-xs cursor-pointer">
@@ -404,7 +436,6 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
               {match.awayTeam || "Visitante"}
             </label>
           </div>
-          {/* Roster visibility toggles */}
           <div className="flex items-center gap-3 px-2 border-l border-border pl-3">
             <span className="text-xs text-muted-foreground font-semibold">Plantel:</span>
             <label className="flex items-center gap-1 text-xs cursor-pointer">
@@ -417,49 +448,58 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             </label>
           </div>
 
+          {/* Seleccionar */}
           <Button
-            variant={selectMode ? "default" : "outline"}
-            size="sm"
-            onClick={() => {
-              setSelectMode(!selectMode);
-              if (!selectMode) setSelectedIds(new Set(match.players.map((p) => p.id)));
-            }}
-            className="gap-1.5"
-            disabled={match.players.length === 0}
+            variant={selectMode ? "default" : "outline"} size="sm"
+            onClick={() => { setSelectMode(!selectMode); if (!selectMode) setSelectedIds(new Set(match.players.map((p) => p.id))); }}
+            className="gap-1.5" disabled={match.players.length === 0}
           >
             <CheckSquare className="w-4 h-4" />
-            {selectMode ? "Cancelar" : "Seleccionar"}
+            {selectMode ? "Cancelar (Esc)" : "Seleccionar"}
           </Button>
+
+          {/* Copiar / Pegar */}
           {selectMode && (
-            <>
-              <Button size="sm" variant="secondary" onClick={copySelectedMarkers} disabled={selectedIds.size === 0} className="gap-1.5">
-                <Copy className="w-4 h-4" />
-                Copiar {selectedIds.size}
-              </Button>
-              {copiedMarkers.length > 0 && (
-                <Button size="sm" variant="secondary" onClick={pasteMarkers} className="gap-1.5">
-                  <ClipboardPaste className="w-4 h-4" />
-                  Pegar ({copiedMarkers.length})
-                </Button>
-              )}
-              <Button size="sm" onClick={exportSelected} disabled={selectedIds.size === 0} className="gap-1.5">
-                <Download className="w-4 h-4" />
-                Exportar {selectedIds.size}
-              </Button>
-            </>
+            <Button size="sm" variant="secondary" onClick={copySelectedMarkers} disabled={selectedIds.size === 0} className="gap-1.5">
+              <Copy className="w-4 h-4" />
+              Copiar {selectedIds.size}
+            </Button>
           )}
-          {!selectMode && copiedMarkers.length > 0 && (
+          {copiedMarkers.length > 0 && (
             <Button size="sm" variant="secondary" onClick={pasteMarkers} className="gap-1.5">
               <ClipboardPaste className="w-4 h-4" />
               Pegar ({copiedMarkers.length})
             </Button>
           )}
-          <Button size="sm" onClick={exportPlate} className="gap-1.5">
+
+          {/* Exportar selección */}
+          {selectMode && (
+            <Button size="sm" onClick={exportSelected} disabled={selectedIds.size === 0} className="gap-1.5">
+              <Download className="w-4 h-4" />
+              Exportar {selectedIds.size}
+            </Button>
+          )}
+
+          {/* Exportar PNG + Imprimir A4 */}
+          <Button size="sm" variant="outline" onClick={exportPlate} className="gap-1.5">
             <Download className="w-4 h-4" />
-            Exportar Placa
+            Exportar PNG
+          </Button>
+          <Button size="sm" onClick={printPlate} className="gap-1.5">
+            <Printer className="w-4 h-4" />
+            Imprimir A4
           </Button>
         </div>
       </div>
+
+      {/* Hint de atajos */}
+      <p className="text-xs text-muted-foreground">
+        <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Cmd+Click</kbd> seleccionar ·{" "}
+        <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Cmd+C</kbd> copiar ·{" "}
+        <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Cmd+V</kbd> pegar ·{" "}
+        <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Esc</kbd> cancelar selección ·
+        Cancha principal → formas grandes · Ventanas → formas compactas
+      </p>
 
       {/* Selection grid */}
       {selectMode && match.players.length > 0 && (
@@ -469,12 +509,8 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
               Seleccioná las formas ({selectedIds.size}/{match.players.length})
             </span>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set(match.players.map((p) => p.id)))}>
-                Todas
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-                Ninguna
-              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set(match.players.map((p) => p.id)))}>Todas</Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Ninguna</Button>
             </div>
           </div>
           <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2">
@@ -496,6 +532,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
                     color1={p.team === "home" ? homeColor1 : awayColor1}
                     color2={p.team === "home" ? homeColor2 : awayColor2}
                     size={40}
+                    variant="compact"
                   />
                 </div>
                 <p className="text-[8px] text-center text-muted-foreground truncate">{p.name?.split(" ").pop()}</p>
@@ -505,6 +542,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
         </div>
       )}
 
+      {/* ─── PLACA ─── */}
       <div className="overflow-auto rounded-lg border border-border">
         <div
           ref={plateRef}
@@ -514,120 +552,54 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         >
-          {/* ===== HEADER ===== */}
-          <div
-            className="absolute"
-            style={{
-              left: 0, top: 0, width: PLATE_W, height: 65,
-              background: "#000000",
-              clipPath: "polygon(0 0, 100% 0, 93% 100%, 0 100%)",
-            }}
-          >
+          {/* HEADER */}
+          <div className="absolute" style={{ left: 0, top: 0, width: PLATE_W, height: 65, background: "#000000", clipPath: "polygon(0 0, 100% 0, 93% 100%, 0 100%)" }}>
             <div className="flex items-center h-full px-8 gap-4">
-              {/* Home badge */}
-              {match.homeBadge && (
-                <img
-                  src={match.homeBadge}
-                  alt=""
-                  style={{ height: 40, width: 40, objectFit: "contain" }}
-                  crossOrigin="anonymous"
-                />
-              )}
+              {match.homeBadge && <img src={match.homeBadge} alt="" style={{ height: 40, width: 40, objectFit: "contain" }} crossOrigin="anonymous" />}
               <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: "3px", fontWeight: 700, fontStyle: "italic" }}>
                 {match.homeTeam?.toUpperCase() || "LOCAL"}
               </span>
-              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: "3px", fontWeight: 700, fontStyle: "italic", margin: "0 12px", opacity: 0.5 }}>
-                VS
-              </span>
+              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: "3px", fontWeight: 700, fontStyle: "italic", margin: "0 12px", opacity: 0.5 }}>VS</span>
               <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: "3px", fontWeight: 700, fontStyle: "italic" }}>
                 {match.awayTeam?.toUpperCase() || "VISITANTE"}
               </span>
-              {/* Away badge */}
-              {match.awayBadge && (
-                <img
-                  src={match.awayBadge}
-                  alt=""
-                  style={{ height: 40, width: 40, objectFit: "contain", marginLeft: 8 }}
-                  crossOrigin="anonymous"
-                />
-              )}
+              {match.awayBadge && <img src={match.awayBadge} alt="" style={{ height: 40, width: 40, objectFit: "contain", marginLeft: 8 }} crossOrigin="anonymous" />}
             </div>
           </div>
 
           {/* Sub-header */}
-          <div
-            className="absolute"
-            style={{
-              left: 0, top: 65, width: PLATE_W, height: 35,
-              background: "#1a1a1a",
-              clipPath: "polygon(0 0, 93% 0, 89% 100%, 0 100%)",
-            }}
-          >
+          <div className="absolute" style={{ left: 0, top: 65, width: PLATE_W, height: 35, background: "#1a1a1a", clipPath: "polygon(0 0, 93% 0, 89% 100%, 0 100%)" }}>
             <div className="flex items-center h-full px-8 gap-12">
-              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "2px", fontStyle: "italic", opacity: 0.8 }}>
-                {match.matchday || "F01"}
-              </span>
-              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "4px", fontWeight: 700 }}>
-                {match.tournament?.toUpperCase() || "TORNEO"}
-              </span>
+              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "2px", fontStyle: "italic", opacity: 0.8 }}>{match.matchday || "F01"}</span>
+              <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "4px", fontWeight: 700 }}>{match.tournament?.toUpperCase() || "TORNEO"}</span>
             </div>
           </div>
 
-          {/* Third band - stadium/referee/date */}
-          <div
-            className="absolute"
-            style={{
-              left: 0, top: 100, width: PLATE_W, height: 30,
-              background: "#2a2a2a",
-              clipPath: "polygon(0 0, 89% 0, 86% 100%, 0 100%)",
-            }}
-          >
+          {/* Third band */}
+          <div className="absolute" style={{ left: 0, top: 100, width: PLATE_W, height: 30, background: "#2a2a2a", clipPath: "polygon(0 0, 89% 0, 86% 100%, 0 100%)" }}>
             <div className="flex items-center h-full px-8 gap-10">
-              {match.stadium && (
-                <span style={{ color: "#ccc", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1.5px" }}>
-                  🏟️ {match.stadium}
-                </span>
-              )}
-              {match.referee && (
-                <span style={{ color: "#ccc", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1.5px" }}>
-                  👤 {match.referee}
-                </span>
-              )}
-              {match.date && (
-                <span style={{ color: "#999", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1px" }}>
-                  {match.date}
-                </span>
-              )}
-              {match.time && (
-                <span style={{ color: "#999", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1px" }}>
-                  {match.time}
-                </span>
-              )}
+              {match.stadium && <span style={{ color: "#ccc", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1.5px" }}>🏟️ {match.stadium}</span>}
+              {match.referee && <span style={{ color: "#ccc", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1.5px" }}>👤 {match.referee}</span>}
+              {match.date && <span style={{ color: "#999", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1px" }}>{match.date}</span>}
+              {match.time && <span style={{ color: "#999", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "1px" }}>{match.time}</span>}
             </div>
           </div>
 
-          {/* Red triangle with result */}
-          <div
-            className="absolute flex items-center justify-center"
-            style={{
-              right: 0, top: 0, width: 300, height: 100,
-              background: "#ef4444",
-              clipPath: "polygon(30% 0, 100% 0, 100% 100%, 8% 100%)",
-            }}
-          >
+          {/* Resultado */}
+          <div className="absolute flex items-center justify-center" style={{ right: 0, top: 0, width: 300, height: 100, background: "#ef4444", clipPath: "polygon(30% 0, 100% 0, 100% 100%, 8% 100%)" }}>
             <span style={{ color: "#ffffff", fontFamily: "'Bebas Neue', sans-serif", fontSize: 48, letterSpacing: "6px", fontWeight: 700, marginLeft: 50 }}>
               {match.homeScore || "0"} - {match.awayScore || "0"}
             </span>
           </div>
 
-          {/* Formation label */}
+          {/* Formación label */}
           <div className="absolute" style={{ left: MAIN_FIELD.x, top: MAIN_FIELD.y - 18 }}>
             <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "2px", fontWeight: 700, fontStyle: "italic", color: "#333" }}>
               FORMACIÓN INICIAL: {match.formation}
             </span>
           </div>
 
-          {/* Fields as SVG */}
+          {/* Fields SVG */}
           <svg className="absolute inset-0 pointer-events-none" width={PLATE_W} height={PLATE_H} viewBox={`0 0 ${PLATE_W} ${PLATE_H}`}>
             <FieldSVG {...MAIN_FIELD} />
             {SMALL_FIELDS.map((f, i) => (
@@ -635,76 +607,30 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             ))}
           </svg>
 
-          {/* Substitutions & Roster tables */}
+          {/* Sustituciones y plantel */}
           <div className="absolute overflow-y-auto" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w, maxHeight: SUBS_AREA.h }}>
-            <div
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 22,
-                letterSpacing: "3px",
-                fontWeight: 700,
-                color: "#333",
-                marginBottom: 12,
-                fontStyle: "italic",
-              }}
-            >
-              CAMBIOS
-            </div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "3px", fontWeight: 700, color: "#333", marginBottom: 12, fontStyle: "italic" }}>CAMBIOS</div>
+            {showHomeSubs && homeSubs.length > 0 && <SubsTable subs={homeSubs} teamLabel={match.homeTeam?.toUpperCase() || "LOCAL"} color="#333" />}
+            {showAwaySubs && awaySubs.length > 0 && <SubsTable subs={awaySubs} teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"} color="#555" />}
+            {unassignedSubs.length > 0 && (showHomeSubs || showAwaySubs) && <SubsTable subs={unassignedSubs} teamLabel="SIN EQUIPO" color="#999" />}
 
-            {showHomeSubs && homeSubs.length > 0 && (
-              <SubsTable subs={homeSubs} teamLabel={match.homeTeam?.toUpperCase() || "LOCAL"} color="#333" />
-            )}
-
-            {showAwaySubs && awaySubs.length > 0 && (
-              <SubsTable subs={awaySubs} teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"} color="#555" />
-            )}
-
-            {unassignedSubs.length > 0 && (showHomeSubs || showAwaySubs) && (
-              <SubsTable subs={unassignedSubs} teamLabel="SIN EQUIPO" color="#999" />
-            )}
-
-            {/* Roster tables */}
             {(showHomeRoster || showAwayRoster) && match.players.length > 0 && (
               <>
-                <div
-                  style={{
-                    fontFamily: "'Bebas Neue', sans-serif",
-                    fontSize: 22,
-                    letterSpacing: "3px",
-                    fontWeight: 700,
-                    color: "#333",
-                    marginBottom: 12,
-                    marginTop: 16,
-                    fontStyle: "italic",
-                  }}
-                >
-                  PLANTEL
-                </div>
-
-                {showHomeRoster && (
-                  <RosterTable
-                    players={match.players.filter(p => p.team === "home")}
-                    teamLabel={match.homeTeam?.toUpperCase() || "LOCAL"}
-                    color="#333"
-                  />
-                )}
-
-                {showAwayRoster && (
-                  <RosterTable
-                    players={match.players.filter(p => p.team === "away")}
-                    teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"}
-                    color="#555"
-                  />
-                )}
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "3px", fontWeight: 700, color: "#333", marginBottom: 12, marginTop: 16, fontStyle: "italic" }}>PLANTEL</div>
+                {showHomeRoster && <RosterTable players={match.players.filter(p => p.team === "home")} teamLabel={match.homeTeam?.toUpperCase() || "LOCAL"} color="#333" />}
+                {showAwayRoster && <RosterTable players={match.players.filter(p => p.team === "away")} teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"} color="#555" />}
               </>
             )}
           </div>
 
-          {/* Draggable player markers */}
+          {/* ─── JUGADORES ARRASTRABLES ─── */}
           {match.players.map((player) => {
             if (player.x === undefined || player.y === undefined) return null;
             const c1 = player.team === "home" ? homeColor1 : awayColor1;
             const c2 = player.team === "home" ? homeColor2 : awayColor2;
+            const inMain = isInMainField(player.x, player.y);
+            const markerSize = inMain ? 90 : 42;
+            const variant = inMain ? "full" : "compact";
             return (
               <div
                 key={player.id}
@@ -719,16 +645,19 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
                 }}
                 onMouseDown={(e) => handleMouseDown(e, player.id)}
               >
-                <MatchPlayerMarker player={player} color1={c1} color2={c2} size={55} />
+                <MatchPlayerMarker
+                  player={player}
+                  color1={c1}
+                  color2={c2}
+                  size={markerSize}
+                  variant={variant}
+                  isSelected={selectedIds.has(player.id)}
+                />
               </div>
             );
           })}
         </div>
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Seleccioná formas, copialas y pegalas para duplicarlas en las ventanas. Usá las casillas para mostrar/ocultar cambios y plantel por equipo.
-      </p>
     </div>
   );
 };
