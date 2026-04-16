@@ -1,263 +1,61 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
-import { Player } from "@/types/player";
-import PlayerTable from "@/components/PlayerTable";
-import Campograma from "@/components/Campograma";
-import ColorPicker from "@/components/ColorPicker";
-import PlayerCard from "@/components/PlayerCard";
-import Partidos from "@/pages/Partidos";
-import { Shirt, Download, CheckSquare, Copy } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toPng } from "html-to-image";
-import JSZip from "jszip";
-import { saveAs } from "file-saver";
-import { toast } from "sonner";
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
 
-const Index: React.FC = () => {
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [color1, setColor1] = useState("#0f3460");
-  const [color2, setColor2] = useState("#1a1a2e");
-  const [exporting, setExporting] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectMode, setSelectMode] = useState(false);
-  const [copiedPlayers, setCopiedPlayers] = useState<Player[]>([]);
-  const exportContainerRef = useRef<HTMLDivElement>(null);
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-  const playersToExport = selectMode
-    ? players.filter((p) => selectedIds.has(p.id))
-    : players;
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+@layer base {
+  :root {
+    --background: 220 15% 10%;
+    --foreground: 0 0% 95%;
 
-  const selectAll = () => setSelectedIds(new Set(players.map((p) => p.id)));
-  const selectNone = () => setSelectedIds(new Set());
+    --card: 220 15% 14%;
+    --card-foreground: 0 0% 95%;
 
-  const copySelectedToPaste = useCallback(() => {
-    const selected = players.filter((p) => selectedIds.has(p.id));
-    if (selected.length === 0) {
-      toast.error("Seleccioná al menos un jugador para copiar");
-      return;
-    }
-    setCopiedPlayers(selected);
-    toast.success(
-      `${selected.length} formas copiadas. Andá a la pestaña Partidos y pegá como Local o Visitante.`,
-      { duration: 4000 }
-    );
-  }, [players, selectedIds]);
+    --popover: 220 15% 14%;
+    --popover-foreground: 0 0% 95%;
 
-  // Cmd+C global: copia la selección actual del Campograma
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "c" && selectedIds.size > 0) {
-        // Evitar interferir con inputs de texto
-        const tag = (e.target as HTMLElement)?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-        copySelectedToPaste();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selectedIds, copySelectedToPaste]);
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 100%;
 
-  const exportCards = useCallback(async () => {
-    if (playersToExport.length === 0) return;
-    setExporting(true);
-    await new Promise((r) => setTimeout(r, 200));
+    --secondary: 220 15% 20%;
+    --secondary-foreground: 0 0% 90%;
 
-    const container = exportContainerRef.current;
-    if (!container) { setExporting(false); return; }
+    --muted: 220 15% 18%;
+    --muted-foreground: 220 10% 55%;
 
-    const cards = container.querySelectorAll<HTMLDivElement>("[data-player-card]");
-    const zip = new JSZip();
+    --accent: 145 60% 45%;
+    --accent-foreground: 0 0% 100%;
 
-    for (let i = 0; i < cards.length; i++) {
-      const card = cards[i];
-      try {
-        const dataUrl = await toPng(card, {
-          pixelRatio: 1,
-          width: 300, height: 300,
-          canvasWidth: 300, canvasHeight: 300,
-          backgroundColor: "transparent",
-          skipAutoScale: true,
-          style: { width: "300px", height: "300px", margin: "0" },
-        });
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
-        const name = playersToExport[i]?.name?.split(" ").pop() || `jugador_${i + 1}`;
-        zip.file(`${playersToExport[i]?.number || i + 1}_${name}.png`, blob);
-      } catch (err) {
-        console.error("Error exporting card", i, err);
-      }
-    }
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-    const content = await zip.generateAsync({ type: "blob" });
-    saveAs(content, selectMode ? "formas_seleccionadas.zip" : "plantilla_formas.zip");
-    setExporting(false);
-  }, [playersToExport, selectMode]);
+    --border: 220 15% 22%;
+    --input: 220 15% 22%;
+    --ring: 0 72% 51%;
 
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="container max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-            <Shirt className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-display text-foreground tracking-wider leading-none">
-              CAMPOGRAMA
-            </h1>
-            <p className="text-xs text-muted-foreground font-body">
-              Informe Rival — Plantel por posiciones
-            </p>
-          </div>
-        </div>
-      </header>
+    --radius: 0.5rem;
 
-      <main className="container max-w-7xl mx-auto px-4 py-6">
-        <Tabs defaultValue="campograma" className="space-y-6">
-          <TabsList className="bg-card border border-border">
-            <TabsTrigger value="campograma" className="font-display tracking-wider">CAMPOGRAMA</TabsTrigger>
-            <TabsTrigger value="partidos" className="font-display tracking-wider">
-              PARTIDOS
-              {copiedPlayers.length > 0 && (
-                <span className="ml-2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-primary text-primary-foreground rounded-full">
-                  {copiedPlayers.length}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+    --field-green: 120 45% 35%;
+    --field-line: 0 0% 100%;
+    --jersey-dark: 220 20% 15%;
+    --jersey-light: 0 0% 95%;
+  }
+}
 
-          <TabsContent value="campograma" className="space-y-8">
-            <PlayerTable players={players} onPlayersChange={setPlayers} />
+@layer base {
+  * {
+    @apply border-border;
+  }
 
-            {/* Color picker + export */}
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <ColorPicker color1={color1} color2={color2} onColor1Change={setColor1} onColor2Change={setColor2} />
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button
-                  variant={selectMode ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    if (!selectMode) { setSelectMode(true); selectAll(); }
-                    else { setSelectMode(false); selectNone(); }
-                  }}
-                  disabled={players.length === 0}
-                  className="gap-1.5"
-                >
-                  <CheckSquare className="w-4 h-4" />
-                  {selectMode ? "Cancelar selección" : "Seleccionar formas"}
-                </Button>
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
 
-                {/* Copiar seleccionados a Partidos */}
-                {(selectMode || selectedIds.size > 0) && (
-                  <Button
-                    size="sm" variant="secondary"
-                    onClick={copySelectedToPaste}
-                    disabled={selectedIds.size === 0}
-                    className="gap-1.5"
-                  >
-                    <Copy className="w-4 h-4" />
-                    Copiar {selectedIds.size > 0 ? `${selectedIds.size} ` : ""}para Partidos
-                  </Button>
-                )}
-
-                <Button
-                  size="sm"
-                  onClick={exportCards}
-                  disabled={exporting || playersToExport.length === 0}
-                  className="gap-1.5"
-                >
-                  <Download className="w-4 h-4" />
-                  {exporting ? "Exportando..." : selectMode ? `Exportar ${selectedIds.size} forma(s)` : "Exportar todas (ZIP)"}
-                </Button>
-              </div>
-            </div>
-
-            {/* Selection grid */}
-            {selectMode && players.length > 0 && (
-              <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">
-                    Seleccioná las formas a exportar/copiar ({selectedIds.size}/{players.length})
-                    <span className="text-xs text-muted-foreground ml-2">
-                      — También podés usar <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Cmd+Click</kbd> directo en el campograma
-                    </span>
-                  </span>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={selectAll}>Todas</Button>
-                    <Button variant="ghost" size="sm" onClick={selectNone}>Ninguna</Button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
-                  {players.map((p) => (
-                    <label
-                      key={p.id}
-                      className={`relative cursor-pointer rounded-lg border-2 p-1 transition-all ${
-                        selectedIds.has(p.id) ? "border-primary bg-primary/10" : "border-border hover:border-muted-foreground"
-                      }`}
-                    >
-                      <Checkbox
-                        checked={selectedIds.has(p.id)}
-                        onCheckedChange={() => toggleSelect(p.id)}
-                        className="absolute top-1 right-1 z-10"
-                      />
-                      <div className="pointer-events-none">
-                        <PlayerCard player={p} color1={color1} color2={color2} width={80} />
-                      </div>
-                      <p className="text-[10px] text-center text-muted-foreground truncate mt-1">
-                        {p.name?.split(" ").pop()}
-                      </p>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Campograma con soporte Cmd+Click */}
-            <Campograma
-              players={players}
-              color1={color1}
-              color2={color2}
-              selectedIds={selectedIds}
-              onToggleSelect={(id) => {
-                setSelectMode(true);
-                toggleSelect(id);
-              }}
-            />
-          </TabsContent>
-
-          <TabsContent value="partidos">
-            <Partidos
-              campogramaPlayers={players}
-              campogramaColor1={color1}
-              campogramaColor2={color2}
-              copiedCampogramaPlayers={copiedPlayers}
-              onClearCopied={() => setCopiedPlayers([])}
-            />
-          </TabsContent>
-        </Tabs>
-      </main>
-
-      {/* Hidden container for export */}
-      {exporting && (
-        <div ref={exportContainerRef} className="fixed -left-[9999px] top-0" style={{ opacity: 0 }}>
-          {playersToExport.map((p) => (
-            <div key={p.id} data-player-card style={{ display: "block", width: 300, height: 300, lineHeight: 0, margin: 0, padding: 0 }}>
-              <PlayerCard player={p} color1={color1} color2={color2} width={300} />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default Index;
+  h1, h2, h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.05em;
+  }
+}
