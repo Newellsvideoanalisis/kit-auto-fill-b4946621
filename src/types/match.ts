@@ -17,6 +17,7 @@ export interface MatchPlayer {
   height?: string;
   foot?: string;
   position?: string;
+  isDuplicate?: boolean;
 }
 
 export interface Substitution {

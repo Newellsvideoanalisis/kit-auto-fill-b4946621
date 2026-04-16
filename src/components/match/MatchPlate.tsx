@@ -3,7 +3,7 @@ import { MatchData, MatchPlayer } from "@/types/match";
 import MatchPlayerMarker from "./MatchPlayerMarker";
 import { toPng } from "html-to-image";
 import { Button } from "@/components/ui/button";
-import { Download, CheckSquare, LayoutGrid, Copy, ClipboardPaste, Printer } from "lucide-react";
+import { Download, CheckSquare, LayoutGrid, Copy, ClipboardPaste, Printer, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import JSZip from "jszip";
@@ -30,7 +30,6 @@ const SMALL_FIELDS = [
 
 const SUBS_AREA = { x: 1260, y: 150, w: 630, h: 880 };
 
-/** Detecta si un jugador está posicionado en la cancha principal */
 function isInMainField(x: number, y: number): boolean {
   return (
     x >= MAIN_FIELD.x - 50 &&
@@ -83,66 +82,82 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showHomeSubs, setShowHomeSubs] = useState(true);
   const [showAwaySubs, setShowAwaySubs] = useState(true);
-  const [showHomeRoster, setShowHomeRoster] = useState(true);
-  const [showAwayRoster, setShowAwayRoster] = useState(true);
+  
+  const [showHomeStartersTable, setShowHomeStartersTable] = useState(true);
+  const [showHomeSubsTable, setShowHomeSubsTable] = useState(true);
+  const [showAwayStartersTable, setShowAwayStartersTable] = useState(true);
+  const [showAwaySubsTable, setShowAwaySubsTable] = useState(true);
+
   const [copiedMarkers, setCopiedMarkers] = useState<MatchPlayer[]>([]);
 
-  // Escape para cancelar selección
+  const deleteSelected = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    const remaining = match.players.filter(p => !selectedIds.has(p.id) || !p.isDuplicate);
+    const updated = remaining.map(p => selectedIds.has(p.id) ? { ...p, x: undefined, y: undefined } : p);
+    onPlayersChange(updated);
+    setSelectedIds(new Set());
+    toast.success("Formas eliminadas de la gráfica");
+  }, [match.players, selectedIds, onPlayersChange]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
       if (e.key === "Escape") {
         setSelectMode(false);
         setSelectedIds(new Set());
       }
-      // Cmd+C / Ctrl+C: copiar seleccionados
       if ((e.metaKey || e.ctrlKey) && e.key === "c" && selectedIds.size > 0) {
         copySelectedMarkers();
       }
-      // Cmd+V / Ctrl+V: pegar
       if ((e.metaKey || e.ctrlKey) && e.key === "v" && copiedMarkers.length > 0) {
         pasteMarkers();
+      }
+      if (e.key === "Backspace" || e.key === "Delete") {
+        if (selectedIds.size > 0) deleteSelected();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedIds, copiedMarkers]);
+  }, [selectedIds, copiedMarkers, deleteSelected]);
 
   const applyFormation = useCallback((formation: string) => {
-    const homeStarters = match.players.filter(p => p.team === "home" && p.isStarter);
-    const awayStarters = match.players.filter(p => p.team === "away" && p.isStarter);
+    const originalPlayers = match.players.filter(p => !p.isDuplicate);
+    const updated = [...originalPlayers];
+
+    const homeStarters = updated.filter(p => p.team === "home" && p.isStarter);
+    
+    // 1. Home starters en la cancha principal MAIN_FIELD
     const positions = getFormationPositions(formation, MAIN_FIELD.x, MAIN_FIELD.y, MAIN_FIELD.w, MAIN_FIELD.h);
-
-    const updated = [...match.players];
-
     homeStarters.forEach((p, i) => {
       if (i < positions.length) {
-        const idx = updated.findIndex(pp => pp.id === p.id);
-        if (idx >= 0) updated[idx] = { ...updated[idx], x: positions[i].x, y: positions[i].y };
+        p.x = positions[i].x; p.y = positions[i].y;
       }
     });
 
-    const awayField = SMALL_FIELDS[0];
-    const awayPositions = getFormationPositions(formation, awayField.x, awayField.y, awayField.w, awayField.h);
-    awayStarters.forEach((p, i) => {
-      if (i < awayPositions.length) {
-        const idx = updated.findIndex(pp => pp.id === p.id);
-        if (idx >= 0) updated[idx] = { ...updated[idx], x: awayPositions[i].x, y: awayPositions[i].y };
+    // 2. TODAS las formas pequeñas para el HOME (Titulares + Suplentes) en Ventana 1
+    const homeAll = updated.filter(p => p.team === "home");
+    homeAll.forEach((p, i) => {
+      if (p.isStarter) {
+        updated.push({
+          ...p,
+          id: crypto.randomUUID(),
+          isDuplicate: true,
+          x: SMALL_FIELDS[0].x + 20 + (i % 5) * 50,
+          y: SMALL_FIELDS[0].y + 30 + Math.floor(i / 5) * 65
+        });
+      } else {
+        p.x = SMALL_FIELDS[0].x + 20 + (i % 5) * 50;
+        p.y = SMALL_FIELDS[0].y + 30 + Math.floor(i / 5) * 65;
       }
     });
 
-    const homeBench = updated.filter(p => p.team === "home" && !p.isStarter);
-    const awayBench = updated.filter(p => p.team === "away" && !p.isStarter);
-
-    homeBench.forEach((p, i) => {
-      const sf = SMALL_FIELDS[2];
-      const idx = updated.findIndex(pp => pp.id === p.id);
-      if (idx >= 0) updated[idx] = { ...updated[idx], x: sf.x + 20 + (i % 5) * 50, y: sf.y + 30 + Math.floor(i / 5) * 65 };
-    });
-
-    awayBench.forEach((p, i) => {
-      const sf = SMALL_FIELDS[3];
-      const idx = updated.findIndex(pp => pp.id === p.id);
-      if (idx >= 0) updated[idx] = { ...updated[idx], x: sf.x + 20 + (i % 5) * 50, y: sf.y + 30 + Math.floor(i / 5) * 65 };
+    // 3. TODAS las formas pequeñas para el AWAY (Titulares + Suplentes) en Ventana 2
+    const awayAll = updated.filter(p => p.team === "away");
+    awayAll.forEach((p, i) => {
+      p.x = SMALL_FIELDS[1].x + 20 + (i % 5) * 50;
+      p.y = SMALL_FIELDS[1].y + 30 + Math.floor(i / 5) * 65;
     });
 
     onPlayersChange(updated);
@@ -157,7 +172,6 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, id: string) => {
-      // Cmd+Click / Ctrl+Click → toggle selección sin arrastrar
       if (e.metaKey || e.ctrlKey) {
         e.preventDefault();
         setSelectedIds((prev) => {
@@ -203,7 +217,6 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
 
   const handleMouseUp = useCallback(() => setDragging(null), []);
 
-  // ─── EXPORTAR PNG ────────────────────────────────────────────────────────────
   const exportPlate = async () => {
     if (!plateRef.current) return;
     try {
@@ -217,7 +230,6 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
     }
   };
 
-  // ─── IMPRIMIR / PDF A4 ───────────────────────────────────────────────────────
   const printPlate = async () => {
     if (!plateRef.current) return;
     try {
@@ -296,7 +308,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
       return;
     }
     setCopiedMarkers(selected);
-    toast.success(`${selected.length} formas copiadas. Cmd+V o botón Pegar para duplicarlas.`);
+    toast.success(`${selected.length} formas copiadas.`);
   };
 
   const pasteMarkers = () => {
@@ -304,6 +316,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
     const newPlayers = copiedMarkers.map(p => ({
       ...p,
       id: crypto.randomUUID(),
+      isDuplicate: true,
       x: (p.x || 0) + 40,
       y: (p.y || 0) + 40,
     }));
@@ -346,15 +359,20 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
     </div>
   );
 
-  const RosterTable: React.FC<{ players: MatchPlayer[]; teamLabel: string; color: string }> = ({ players: teamPlayers, teamLabel, color }) => {
-    const starters = teamPlayers.filter(p => p.isStarter);
-    const subs = teamPlayers.filter(p => !p.isStarter);
+  const RosterTable: React.FC<{ players: MatchPlayer[]; teamLabel: string; color: string; showStarters: boolean; showSubs: boolean }> = ({ players, teamLabel, color, showStarters, showSubs }) => {
+    // Only original players, no duplicates
+    const originals = players.filter(p => !p.isDuplicate);
+    const starters = originals.filter(p => p.isStarter);
+    const subs = originals.filter(p => !p.isStarter);
+    
+    if (!showStarters && !showSubs) return null;
+
     return (
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "2px", fontWeight: 700, color, marginBottom: 6, fontStyle: "italic" }}>
           {teamLabel}
         </div>
-        {starters.length > 0 && (
+        {showStarters && starters.length > 0 && (
           <>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "#555", letterSpacing: "1.5px", marginBottom: 4 }}>TITULARES ({starters.length})</div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Bebas Neue', sans-serif", marginBottom: 10 }}>
@@ -375,7 +393,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             </table>
           </>
         )}
-        {subs.length > 0 && (
+        {showSubs && subs.length > 0 && (
           <>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: "#888", letterSpacing: "1.5px", marginBottom: 4 }}>SUPLENTES ({subs.length})</div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Bebas Neue', sans-serif" }}>
@@ -424,123 +442,90 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             </Button>
           </div>
 
-          {/* Cambios / plantel toggles */}
+          {/* Cambios */}
           <div className="flex items-center gap-3 px-2 border-l border-border pl-3">
             <span className="text-xs text-muted-foreground font-semibold">Cambios:</span>
             <label className="flex items-center gap-1 text-xs cursor-pointer">
               <Checkbox checked={showHomeSubs} onCheckedChange={(v) => setShowHomeSubs(!!v)} className="w-3.5 h-3.5" />
-              {match.homeTeam || "Local"}
+              L
             </label>
             <label className="flex items-center gap-1 text-xs cursor-pointer">
               <Checkbox checked={showAwaySubs} onCheckedChange={(v) => setShowAwaySubs(!!v)} className="w-3.5 h-3.5" />
-              {match.awayTeam || "Visitante"}
+              V
             </label>
           </div>
-          <div className="flex items-center gap-3 px-2 border-l border-border pl-3">
-            <span className="text-xs text-muted-foreground font-semibold">Plantel:</span>
+          
+          {/* Tablas de Plantel Toggles */}
+          <div className="flex items-center gap-2 px-2 border-l border-border pl-3">
+            <span className="text-xs text-muted-foreground font-semibold">Titulares:</span>
             <label className="flex items-center gap-1 text-xs cursor-pointer">
-              <Checkbox checked={showHomeRoster} onCheckedChange={(v) => setShowHomeRoster(!!v)} className="w-3.5 h-3.5" />
-              {match.homeTeam || "Local"}
+              <Checkbox checked={showHomeStartersTable} onCheckedChange={(v) => setShowHomeStartersTable(!!v)} className="w-3.5 h-3.5" />
+              L
             </label>
             <label className="flex items-center gap-1 text-xs cursor-pointer">
-              <Checkbox checked={showAwayRoster} onCheckedChange={(v) => setShowAwayRoster(!!v)} className="w-3.5 h-3.5" />
-              {match.awayTeam || "Visitante"}
+              <Checkbox checked={showAwayStartersTable} onCheckedChange={(v) => setShowAwayStartersTable(!!v)} className="w-3.5 h-3.5" />
+              V
+            </label>
+          </div>
+          
+          <div className="flex items-center gap-2 px-2 border-l border-border pl-3 pr-2">
+            <span className="text-xs text-muted-foreground font-semibold">Suplentes:</span>
+            <label className="flex items-center gap-1 text-xs cursor-pointer">
+              <Checkbox checked={showHomeSubsTable} onCheckedChange={(v) => setShowHomeSubsTable(!!v)} className="w-3.5 h-3.5" />
+              L
+            </label>
+            <label className="flex items-center gap-1 text-xs cursor-pointer">
+              <Checkbox checked={showAwaySubsTable} onCheckedChange={(v) => setShowAwaySubsTable(!!v)} className="w-3.5 h-3.5" />
+              V
             </label>
           </div>
 
           {/* Seleccionar */}
           <Button
             variant={selectMode ? "default" : "outline"} size="sm"
-            onClick={() => { setSelectMode(!selectMode); if (!selectMode) setSelectedIds(new Set(match.players.map((p) => p.id))); }}
+            onClick={() => { setSelectMode(!selectMode); if (!selectMode) setSelectedIds(new Set(match.players.filter(p => p.x !== undefined).map((p) => p.id))); }}
             className="gap-1.5" disabled={match.players.length === 0}
           >
             <CheckSquare className="w-4 h-4" />
             {selectMode ? "Cancelar (Esc)" : "Seleccionar"}
           </Button>
 
-          {/* Copiar / Pegar */}
+          {/* Acciones de Selección */}
           {selectMode && (
             <Button size="sm" variant="secondary" onClick={copySelectedMarkers} disabled={selectedIds.size === 0} className="gap-1.5">
-              <Copy className="w-4 h-4" />
-              Copiar {selectedIds.size}
+              <Copy className="w-4 h-4" /> Copiar {selectedIds.size}
             </Button>
           )}
           {copiedMarkers.length > 0 && (
             <Button size="sm" variant="secondary" onClick={pasteMarkers} className="gap-1.5">
-              <ClipboardPaste className="w-4 h-4" />
-              Pegar ({copiedMarkers.length})
+              <ClipboardPaste className="w-4 h-4" /> Pegar ({copiedMarkers.length})
             </Button>
           )}
+          {selectMode && (
+             <Button size="sm" variant="destructive" onClick={deleteSelected} disabled={selectedIds.size === 0} className="gap-1.5">
+               <Trash2 className="w-4 h-4" /> Eliminar {selectedIds.size}
+             </Button>
+          )}
 
-          {/* Exportar selección */}
+          {/* Exportar */}
           {selectMode && (
             <Button size="sm" onClick={exportSelected} disabled={selectedIds.size === 0} className="gap-1.5">
-              <Download className="w-4 h-4" />
-              Exportar {selectedIds.size}
+              <Download className="w-4 h-4" /> Exportar {selectedIds.size}
             </Button>
           )}
-
-          {/* Exportar PNG + Imprimir A4 */}
           <Button size="sm" variant="outline" onClick={exportPlate} className="gap-1.5">
-            <Download className="w-4 h-4" />
-            Exportar PNG
-          </Button>
-          <Button size="sm" onClick={printPlate} className="gap-1.5">
-            <Printer className="w-4 h-4" />
-            Imprimir A4
+            <Download className="w-4 h-4" /> PNG
           </Button>
         </div>
       </div>
 
-      {/* Hint de atajos */}
       <p className="text-xs text-muted-foreground">
         <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Cmd+Click</kbd> seleccionar ·{" "}
         <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Cmd+C</kbd> copiar ·{" "}
         <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Cmd+V</kbd> pegar ·{" "}
-        <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Esc</kbd> cancelar selección ·
-        Cancha principal → formas grandes · Ventanas → formas compactas
+        <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Del</kbd> o <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Back</kbd> eliminar ·{" "}
+        <kbd className="px-1 py-0.5 rounded bg-muted text-xs">Esc</kbd> cancelar 
       </p>
-
-      {/* Selection grid */}
-      {selectMode && match.players.length > 0 && (
-        <div className="rounded-lg border border-border bg-card p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-muted-foreground">
-              Seleccioná las formas ({selectedIds.size}/{match.players.length})
-            </span>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set(match.players.map((p) => p.id)))}>Todas</Button>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Ninguna</Button>
-            </div>
-          </div>
-          <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2">
-            {match.players.map((p) => (
-              <label
-                key={p.id}
-                className={`relative cursor-pointer rounded border-2 p-1 transition-all ${
-                  selectedIds.has(p.id) ? "border-primary bg-primary/10" : "border-border hover:border-muted-foreground"
-                }`}
-              >
-                <Checkbox
-                  checked={selectedIds.has(p.id)}
-                  onCheckedChange={() => toggleSelect(p.id)}
-                  className="absolute top-0.5 right-0.5 z-10 w-3 h-3"
-                />
-                <div className="pointer-events-none">
-                  <MatchPlayerMarker
-                    player={p}
-                    color1={p.team === "home" ? homeColor1 : awayColor1}
-                    color2={p.team === "home" ? homeColor2 : awayColor2}
-                    size={40}
-                    variant="compact"
-                  />
-                </div>
-                <p className="text-[8px] text-center text-muted-foreground truncate">{p.name?.split(" ").pop()}</p>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ─── PLACA ─── */}
       <div className="overflow-auto rounded-lg border border-border">
@@ -607,18 +592,32 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             ))}
           </svg>
 
-          {/* Sustituciones y plantel */}
+          {/* Sustituciones y plantel TABLAS */}
           <div className="absolute overflow-y-auto" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w, maxHeight: SUBS_AREA.h }}>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "3px", fontWeight: 700, color: "#333", marginBottom: 12, fontStyle: "italic" }}>CAMBIOS</div>
+            {((showHomeSubs && homeSubs.length > 0) || (showAwaySubs && awaySubs.length > 0) || (unassignedSubs.length > 0)) && (
+               <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "3px", fontWeight: 700, color: "#333", marginBottom: 12, fontStyle: "italic" }}>CAMBIOS</div>
+            )}
             {showHomeSubs && homeSubs.length > 0 && <SubsTable subs={homeSubs} teamLabel={match.homeTeam?.toUpperCase() || "LOCAL"} color="#333" />}
             {showAwaySubs && awaySubs.length > 0 && <SubsTable subs={awaySubs} teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"} color="#555" />}
             {unassignedSubs.length > 0 && (showHomeSubs || showAwaySubs) && <SubsTable subs={unassignedSubs} teamLabel="SIN EQUIPO" color="#999" />}
 
-            {(showHomeRoster || showAwayRoster) && match.players.length > 0 && (
+            {(showHomeStartersTable || showHomeSubsTable || showAwayStartersTable || showAwaySubsTable) && match.players.length > 0 && (
               <>
                 <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "3px", fontWeight: 700, color: "#333", marginBottom: 12, marginTop: 16, fontStyle: "italic" }}>PLANTEL</div>
-                {showHomeRoster && <RosterTable players={match.players.filter(p => p.team === "home")} teamLabel={match.homeTeam?.toUpperCase() || "LOCAL"} color="#333" />}
-                {showAwayRoster && <RosterTable players={match.players.filter(p => p.team === "away")} teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"} color="#555" />}
+                <RosterTable 
+                  players={match.players.filter(p => p.team === "home")} 
+                  teamLabel={match.homeTeam?.toUpperCase() || "LOCAL"} 
+                  color="#333" 
+                  showStarters={showHomeStartersTable} 
+                  showSubs={showHomeSubsTable} 
+                />
+                <RosterTable 
+                  players={match.players.filter(p => p.team === "away")} 
+                  teamLabel={match.awayTeam?.toUpperCase() || "VISITANTE"} 
+                  color="#555" 
+                  showStarters={showAwayStartersTable} 
+                  showSubs={showAwaySubsTable} 
+                />
               </>
             )}
           </div>
@@ -629,7 +628,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
             const c1 = player.team === "home" ? homeColor1 : awayColor1;
             const c2 = player.team === "home" ? homeColor2 : awayColor2;
             const inMain = isInMainField(player.x, player.y);
-            const markerSize = inMain ? 90 : 42;
+            const markerSize = inMain ? 90 : 55;
             const variant = inMain ? "full" : "compact";
             return (
               <div

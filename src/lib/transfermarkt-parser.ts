@@ -147,47 +147,46 @@ function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[]
   const startersSection = benchIdx > -1 ? section.substring(0, benchIdx) : section;
   const benchSection = benchIdx > -1 ? section.substring(benchIdx) : "";
 
-  // Starters: number on its own line followed by [Name](link)
-  const starterPattern = /\n(\d+)\n\n\[([^\]]+)\]/g;
+  // Parse Starters robusto por URL
+  const spielerLinkPattern = /\[([^\]]+)\]\([^)]*spieler[^)]*\)/g;
   let match;
-
-  while ((match = starterPattern.exec(startersSection)) !== null) {
-    players.push({
-      id: crypto.randomUUID(),
-      number: match[1],
-      name: match[2],
-      isStarter: true,
-      team,
-      events: [],
-    });
-  }
-
-  // Bench players in table format
-  const benchTablePattern = /\|\s*(\d+)\s*\|\s*\[([^\]]+)\]/g;
-  while ((match = benchTablePattern.exec(benchSection)) !== null) {
-    players.push({
-      id: crypto.randomUUID(),
-      number: match[1],
-      name: match[2],
-      isStarter: false,
-      team,
-      events: [],
-    });
-  }
-
-  // Fallback: table format for starters too
-  if (players.filter(p => p.isStarter).length === 0) {
-    const tablePattern = /\|\s*(\d+)\s*\|\s*\[([^\]]+)\]/g;
-    while ((match = tablePattern.exec(startersSection)) !== null) {
+  while ((match = spielerLinkPattern.exec(startersSection)) !== null) {
+    const name = match[1].trim();
+    if (name) {
       players.push({
         id: crypto.randomUUID(),
-        number: match[1],
-        name: match[2],
+        number: "",
+        name,
         isStarter: true,
         team,
         events: [],
       });
     }
+  }
+
+  // Parse Bench robusto
+  spielerLinkPattern.lastIndex = 0;
+  while ((match = spielerLinkPattern.exec(benchSection)) !== null) {
+    const name = match[1].trim();
+    if (name) {
+      players.push({
+        id: crypto.randomUUID(),
+        number: "",
+        name,
+        isStarter: false,
+        team,
+        events: [],
+      });
+    }
+  }
+
+  // Find numbers
+  const numberPattern = /(?:\|\s*(\d+)\s*\|\s*|^\s*(\d+)\s*\n\s*|(\d+)\s+)\[([^\]]+)\]/gm;
+  while ((match = numberPattern.exec(section)) !== null) {
+    const num = match[1] || match[2] || match[3];
+    const name = match[4].trim();
+    const p = players.find((x) => x.name === name);
+    if (p && num) p.number = num;
   }
 
   return players;
