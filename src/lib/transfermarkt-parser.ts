@@ -120,6 +120,32 @@ function normalizeFormation(f: string): string {
 }
 
 function extractTeamSection(markdown: string, teamIndex: number): string {
+  const benchIdxs = [...markdown.matchAll(/Banquillo/gi)].map(m => m.index!);
+  const coachIdxs = [...markdown.matchAll(/Entrenador/gi)].map(m => m.index!);
+
+  if (benchIdxs.length >= 2) {
+    if (teamIndex === 0) {
+      let endOfHome = markdown.length;
+      if (coachIdxs.length >= 1 && coachIdxs[0] > benchIdxs[0] && coachIdxs[0] < benchIdxs[1]) {
+        endOfHome = coachIdxs[0] + 100;
+      } else {
+        endOfHome = benchIdxs[0] + (benchIdxs[1] - benchIdxs[0]) / 2;
+      }
+      return markdown.substring(0, endOfHome);
+    } else {
+      let startOfAway = 0;
+      if (coachIdxs.length >= 1 && coachIdxs[0] > benchIdxs[0] && coachIdxs[0] < benchIdxs[1]) {
+        startOfAway = coachIdxs[0] + 100;
+      } else {
+        startOfAway = benchIdxs[0] + (benchIdxs[1] - benchIdxs[0]) / 2;
+      }
+      let endOfAway = markdown.indexOf("## Goles");
+      if (endOfAway === -1) endOfAway = markdown.length;
+      return markdown.substring(startOfAway, endOfAway);
+    }
+  }
+
+  // Fallback
   const formationIdx: number[] = [];
   let searchFrom = 0;
   while (true) {

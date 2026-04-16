@@ -163,12 +163,16 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
     onPlayersChange(updated);
   }, [match.players, onPlayersChange]);
 
+  const autoPosRef = useRef(false);
+
   useEffect(() => {
-    const needsPositioning = match.players.some(p => p.x === undefined || p.y === undefined);
-    if (needsPositioning && match.players.length > 0) {
+    if (match.players.length === 0) {
+      autoPosRef.current = false;
+    } else if (!autoPosRef.current && match.players.some(p => p.x === undefined || p.y === undefined)) {
       applyFormation(match.formation || "4-3-3");
+      autoPosRef.current = true;
     }
-  }, [match.players.length]);
+  }, [match.players, match.formation, applyFormation]);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, id: string) => {

@@ -81,6 +81,8 @@ const Partidos: React.FC<PartidosProps> = ({
       isStarter: i < 11,
       team,
       events: [],
+      x: 300 + (i % 5) * 40,
+      y: 300 + Math.floor(i / 5) * 40,
     }));
     setMatch((prev) => ({
       ...prev,
