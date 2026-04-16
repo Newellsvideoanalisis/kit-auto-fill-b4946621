@@ -14,7 +14,7 @@ export function parseTransfermarktMarkdown(markdown: string, html?: string): Par
   }
 
   // Extract team badges from markdown - look for wappen images near team names
-  const badgePattern = /\[\!\[([^\]]*)\]\((https:\/\/tmssl\.akamaized\.net\/\/images\/wappen\/normquad\/[^)]+)\)\]/g;
+  const badgePattern = /\[!\[([^\]]*)\]\((https:\/\/tmssl\.akamaized\.net\/\/images\/wappen\/normquad\/[^)]+)\)\]/g;
   const badges: { name: string; url: string }[] = [];
   let bm;
   while ((bm = badgePattern.exec(markdown)) !== null) {
@@ -75,7 +75,7 @@ export function parseTransfermarktMarkdown(markdown: string, html?: string): Par
   }
 
   // Extract stadium
-  const stadiumMatch = markdown.match(/\[([^\]]+)\]\(https:\/\/www\.transfermarkt[^\)]*\/stadion\//);
+  const stadiumMatch = markdown.match(/\[([^\]]+)\]\(https:\/\/www\.transfermarkt[^)]*\/stadion\//);
   if (stadiumMatch) {
     result.stadium = stadiumMatch[1].trim();
   }
@@ -349,7 +349,7 @@ function extractSection(markdown: string, startHeader: string, endHeader: string
 }
 
 function findPlayerByName(players: MatchPlayer[], name: string): MatchPlayer | undefined {
-  let player = players.find(p => p.name === name);
+  const player = players.find(p => p.name === name);
   if (player) return player;
 
   const lastName = name.split(" ").pop()?.toLowerCase();

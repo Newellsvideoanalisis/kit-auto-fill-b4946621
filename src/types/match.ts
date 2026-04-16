@@ -1,131 +1,52 @@
-import React, { useState } from "react";
-import { MatchData } from "@/types/match";
-import { Player } from "@/types/player";
-import MatchForm from "@/components/match/MatchForm";
-import MatchPlate from "@/components/match/MatchPlate";
-import ProjectManager from "@/components/match/ProjectManager";
-import TransfermarktImporter from "@/components/match/TransfermarktImporter";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { ClipboardPaste } from "lucide-react";
-
-const defaultMatch: MatchData = {
-  homeTeam: "",
-  awayTeam: "",
-  homeScore: "0",
-  awayScore: "0",
-  homeColor1: "#1e3a5f",
-  homeColor2: "#000000",
-  awayColor1: "#ef4444",
-  awayColor2: "#7f1d1d",
-  tournament: "",
-  matchday: "",
-  date: "",
-  time: "",
-  stadium: "",
-  referee: "",
-  formation: "4-3-3",
-  players: [],
-  substitutions: [],
-};
-
-interface PartidosProps {
-  campogramaPlayers?: Player[];
-  campogramaColor1?: string;
-  campogramaColor2?: string;
-  copiedCampogramaPlayers?: Player[];
-  onClearCopied?: () => void;
+export interface MatchEvent {
+  type: "goal" | "yellow_card" | "red_card" | "substitution_in" | "substitution_out";
+  minute: string;
 }
 
-const Partidos: React.FC<PartidosProps> = ({
-  campogramaPlayers = [],
-  campogramaColor1 = "#0f3460",
-  campogramaColor2 = "#1a1a2e",
-  copiedCampogramaPlayers = [],
-  onClearCopied,
-}) => {
-  const [match, setMatch] = useState<MatchData>(defaultMatch);
+export interface MatchPlayer {
+  id: string;
+  number: string;
+  name: string;
+  isStarter: boolean;
+  team?: "home" | "away";
+  events: MatchEvent[];
+  x?: number;
+  y?: number;
+  // Datos preservados desde Campograma para formas completas
+  birthDate?: string;
+  height?: string;
+  foot?: string;
+  position?: string;
+}
 
-  const handlePlayersChange = (players: MatchData["players"]) => {
-    setMatch((prev) => ({ ...prev, players }));
-  };
+export interface Substitution {
+  id: string;
+  minuteIn: string;
+  playerIn: string;
+  playerInNumber: string;
+  playerOut: string;
+  playerOutNumber: string;
+  team?: "home" | "away";
+}
 
-  const handleFormationChange = (formation: string) => {
-    setMatch((prev) => ({ ...prev, formation }));
-  };
-
-  const handleLoadMatch = (data: MatchData) => {
-    setMatch(data);
-  };
-
-  const handleImport = (data: Partial<MatchData>) => {
-    setMatch((prev) => ({
-      ...prev,
-      ...data,
-      homeColor1: prev.homeColor1,
-      homeColor2: prev.homeColor2,
-      awayColor1: prev.awayColor1,
-      awayColor2: prev.awayColor2,
-    }));
-  };
-
-  const pasteCampogramaAsTeam = (team: "home" | "away") => {
-    if (copiedCampogramaPlayers.length === 0) {
-      toast.error("No hay formas copiadas desde Campograma. Seleccioná y copiá jugadores primero.");
-      return;
-    }
-    const newPlayers = copiedCampogramaPlayers.map((p, i) => ({
-      id: crypto.randomUUID(),
-      number: p.number || "",
-      name: p.name || "",
-      isStarter: i < 11,
-      team,
-      events: [],
-      // Preservar todos los datos para las formas completas en la cancha principal
-      birthDate: p.birthDate,
-      height: p.height,
-      foot: p.foot,
-      position: p.position,
-    }));
-    setMatch((prev) => ({
-      ...prev,
-      players: [...prev.players.filter(pp => pp.team !== team), ...newPlayers],
-    }));
-    toast.success(`${newPlayers.length} jugadores pegados como ${team === "home" ? "Local" : "Visitante"} — los titulares mostrarán la forma completa en la cancha principal.`);
-    onClearCopied?.();
-  };
-
-  return (
-    <div className="space-y-8">
-      <TransfermarktImporter onImport={handleImport} />
-      <ProjectManager currentMatch={match} onLoad={handleLoadMatch} />
-
-      {/* Pegar desde Campograma */}
-      {copiedCampogramaPlayers.length > 0 && (
-        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-center justify-between flex-wrap gap-2">
-          <span className="text-sm text-foreground">
-            <ClipboardPaste className="w-4 h-4 inline mr-2" />
-            <strong>{copiedCampogramaPlayers.length}</strong> formas copiadas desde Campograma
-            <span className="text-xs text-muted-foreground ml-2">(con año, pie y altura para formas completas)</span>
-          </span>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => pasteCampogramaAsTeam("home")} className="text-xs h-7">
-              Pegar como Local
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => pasteCampogramaAsTeam("away")} className="text-xs h-7">
-              Pegar como Visitante
-            </Button>
-            <Button size="sm" variant="ghost" onClick={onClearCopied} className="text-xs h-7">
-              Descartar
-            </Button>
-          </div>
-        </div>
-      )}
-
-      <MatchForm match={match} onChange={setMatch} />
-      <MatchPlate match={match} onPlayersChange={handlePlayersChange} onFormationChange={handleFormationChange} />
-    </div>
-  );
-};
-
-export default Partidos;
+export interface MatchData {
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: string;
+  awayScore: string;
+  homeColor1: string;
+  homeColor2: string;
+  awayColor1: string;
+  awayColor2: string;
+  homeBadge?: string;
+  awayBadge?: string;
+  tournament: string;
+  matchday: string;
+  date: string;
+  time: string;
+  stadium: string;
+  referee: string;
+  formation: string;
+  players: MatchPlayer[];
+  substitutions: Substitution[];
+}

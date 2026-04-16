@@ -112,7 +112,7 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
     const awayStarters = match.players.filter(p => p.team === "away" && p.isStarter);
     const positions = getFormationPositions(formation, MAIN_FIELD.x, MAIN_FIELD.y, MAIN_FIELD.w, MAIN_FIELD.h);
 
-    let updated = [...match.players];
+    const updated = [...match.players];
 
     homeStarters.forEach((p, i) => {
       if (i < positions.length) {
