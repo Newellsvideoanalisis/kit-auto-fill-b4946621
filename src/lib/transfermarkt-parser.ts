@@ -86,16 +86,24 @@ export function parseTransfermarktMarkdown(markdown: string, html?: string): Par
     result.referee = refereeMatch[1].trim();
   }
 
-  // Extract formations
-  const formationMatches = [...markdown.matchAll(/Formación inicial:\s*(.+)/g)];
+  // Extract formations recursively
+  const formationMatches = [...markdown.matchAll(/Formaci[oó]n(?: inicial)?:\s*(.+)/gi)];
   if (formationMatches.length > 0) {
-    const formStr = formationMatches[0][1].trim().replace(/\s*ofensivo/i, '').replace(/\s*defensivo/i, '');
-    result.formation = normalizeFormation(formStr);
+    result.homeFormation = normalizeFormation(formationMatches[0][1]);
+  }
+  if (formationMatches.length > 1) {
+    result.awayFormation = normalizeFormation(formationMatches[1][1]);
   }
 
-  // Parse players
+  // Parse players and extract Coaches from sections
   const homeSection = extractTeamSection(markdown, 0, result.homeTeam, result.awayTeam);
   const awaySection = extractTeamSection(markdown, 1, result.homeTeam, result.awayTeam);
+
+  const homeCoachMatch = [...homeSection.matchAll(/\[([^\]]+)\]\([^)]*profil\/trainer\/\d+[^)]*\)/g)];
+  if (homeCoachMatch.length > 0) result.homeCoach = homeCoachMatch[homeCoachMatch.length - 1][1].trim();
+
+  const awayCoachMatch = [...awaySection.matchAll(/\[([^\]]+)\]\([^)]*profil\/trainer\/\d+[^)]*\)/g)];
+  if (awayCoachMatch.length > 0) result.awayCoach = awayCoachMatch[awayCoachMatch.length - 1][1].trim();
 
   const homePlayers = parseTeamPlayers(homeSection, "home");
   const awayPlayers = parseTeamPlayers(awaySection, "away");

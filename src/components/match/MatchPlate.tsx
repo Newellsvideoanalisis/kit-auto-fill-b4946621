@@ -87,6 +87,9 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
   const [showHomeSubsTable, setShowHomeSubsTable] = useState(true);
   const [showAwayStartersTable, setShowAwayStartersTable] = useState(true);
   const [showAwaySubsTable, setShowAwaySubsTable] = useState(true);
+  
+  const [showHomeCoach, setShowHomeCoach] = useState(true);
+  const [showAwayCoach, setShowAwayCoach] = useState(true);
 
   const [copiedMarkers, setCopiedMarkers] = useState<MatchPlayer[]>([]);
 
@@ -473,6 +476,18 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
           </div>
           
           <div className="flex items-center gap-2 px-2 border-l border-border pl-3 pr-2">
+            <span className="text-xs text-muted-foreground font-semibold">DT:</span>
+            <label className="flex items-center gap-1 text-xs cursor-pointer">
+              <Checkbox checked={showHomeCoach} onCheckedChange={(v) => setShowHomeCoach(!!v)} className="w-3.5 h-3.5" />
+              L
+            </label>
+            <label className="flex items-center gap-1 text-xs cursor-pointer">
+              <Checkbox checked={showAwayCoach} onCheckedChange={(v) => setShowAwayCoach(!!v)} className="w-3.5 h-3.5" />
+              V
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2 px-2 border-l border-border pl-3 pr-2">
             <span className="text-xs text-muted-foreground font-semibold">Suplentes:</span>
             <label className="flex items-center gap-1 text-xs cursor-pointer">
               <Checkbox checked={showHomeSubsTable} onCheckedChange={(v) => setShowHomeSubsTable(!!v)} className="w-3.5 h-3.5" />
@@ -595,6 +610,20 @@ const MatchPlate: React.FC<Props> = ({ match, onPlayersChange, onFormationChange
               <FieldSVG key={i} {...f} label={`VENTANA ${i + 1}`} />
             ))}
           </svg>
+
+          {/* Entrenadores */}
+          <div className="absolute flex gap-8" style={{ left: 35, top: 1045 }}>
+            {showHomeCoach && match.homeCoach && (
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "1.5px", fontWeight: 700, color: "#333", background: "#f0f0f0", padding: "4px 10px", borderRadius: "4px", border: "1px solid #ccc" }}>
+                DT {match.homeTeam?.toUpperCase() || "L"}: <span style={{ color: homeColor1 }}>{match.homeCoach.toUpperCase()}</span> {match.homeFormation ? `(${match.homeFormation})` : ""}
+              </span>
+            )}
+            {showAwayCoach && match.awayCoach && (
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "1.5px", fontWeight: 700, color: "#333", background: "#f0f0f0", padding: "4px 10px", borderRadius: "4px", border: "1px solid #ccc" }}>
+                DT {match.awayTeam?.toUpperCase() || "V"}: <span style={{ color: awayColor1 }}>{match.awayCoach.toUpperCase()}</span> {match.awayFormation ? `(${match.awayFormation})` : ""}
+              </span>
+            )}
+          </div>
 
           {/* Sustituciones y plantel TABLAS */}
           <div className="absolute overflow-y-auto" style={{ left: SUBS_AREA.x, top: SUBS_AREA.y, width: SUBS_AREA.w, maxHeight: SUBS_AREA.h }}>
