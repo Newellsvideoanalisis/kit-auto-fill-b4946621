@@ -163,9 +163,9 @@ function extractTeamSection(markdown: string, teamIndex: number, homeTeam?: stri
     const awayRegex = new RegExp(`\\[${escapeRegex(awayTeam)}\\]`, "gi");
     const awayIdxs = [...markdown.matchAll(awayRegex)].map(m => m.index!);
     if (awayIdxs.length > 0) {
-       // The lineup section usually contains the team name. If it appears multiple times, guess the start of the lineup
-       // The first index is likely the match title. The second is the actual lineup list.
-       const splitIdx = awayIdxs.length > 1 ? awayIdxs[1] : awayIdxs[0];
+       const firstPlayerIdx = markdown.search(/profil\/spieler\/\d+/);
+       let splitIdx = awayIdxs.find(idx => idx > (firstPlayerIdx + 50));
+       if (!splitIdx) splitIdx = awayIdxs.length > 1 ? awayIdxs[1] : awayIdxs[0];
        
        if (teamIndex === 0) {
            return markdown.substring(0, splitIdx);
@@ -306,20 +306,17 @@ function parseSubstitutions(
 ): Substitution[] {
   const subs: Substitution[] = [];
 
-  // Try to extract minutes from HTML if available
-  const minutesFromHtml = html ? extractMinutesFromHtml(html) : [];
-
   const subsSection = extractSection(markdown, "## Cambios", "## Amonestaciones");
   if (!subsSection) return subs;
 
-  // Pattern: two consecutive leistungsdatendetails links = playerIn + playerOut
-  const subPattern = /\[([^\]]+)\]\([^)]*leistungsdatendetails[^)]*\)\s*\[([^\]]+)\]\([^)]*leistungsdatendetails[^)]*\)/g;
+  // Pattern: optional minute before two consecutive profiling links
+  const subPattern = /(?:(?:^|\n|\||\*\*)\s*(\d{1,3})['′]?[^\w\[\]]*)?\[([^\]]+)\]\([^)]*profil\/spieler[^)]*\)\s*\[([^\]]+)\]\([^)]*profil\/spieler[^)]*\)/gi;
   let match;
-  let subIndex = 0;
 
   while ((match = subPattern.exec(subsSection)) !== null) {
-    const playerIn = match[1].trim();
-    const playerOut = match[2].trim();
+    let minuteIn = match[1] ? match[1].trim() : "";
+    const playerIn = match[2].trim();
+    const playerOut = match[3].trim();
 
     let team: "home" | "away" | undefined;
     if (players) {
@@ -334,13 +331,6 @@ function parseSubstitutions(
     const inPlayer = players ? findPlayerByName(players, playerIn) : undefined;
     const outPlayerObj = players ? findPlayerByName(players, playerOut) : undefined;
 
-    // Get minute from HTML extraction, validate it's 1-120
-    let minuteIn = minutesFromHtml[subIndex] || "";
-    const minNum = parseInt(minuteIn);
-    if (isNaN(minNum) || minNum < 1 || minNum > 120) {
-      minuteIn = "";
-    }
-
     subs.push({
       id: crypto.randomUUID(),
       minuteIn,
@@ -350,49 +340,12 @@ function parseSubstitutions(
       playerOutNumber: outPlayerObj?.number || "",
       team,
     });
-    subIndex++;
   }
 
   return subs;
 }
 
-function extractMinutesFromHtml(html: string): string[] {
-  const minutes: string[] = [];
-
-  // In Transfermarkt HTML, substitution minutes appear in elements like:
-  // <span class="sb-aktion-uhr">68'</span> or similar clock elements
-  // Also: title="68'" or alt="68'" in clock icons
-  // Pattern: look for minute indicators near substitution sections
-
-  // Try multiple patterns
-  const patterns = [
-    // Clock icon with minute as text content: >68'<
-    /class="[^"]*(?:uhr|clock|minute)[^"]*"[^>]*>(\d{1,3})['′]?</gi,
-    // Alt text with minute: alt="68'"
-    /alt="(\d{1,3})['′]?"[^>]*class="[^"]*(?:uhr|clock)/gi,
-    // Span with minute near substitution: >68'<
-    /sb-aktion-uhr[^>]*>[\s\S]*?(\d{1,3})['′]?/gi,
-    // Generic minute in substitution context
-    /<(?:span|div)[^>]*class="[^"]*(?:sb-sprite-wechsel-uhr|sb-aktion-uhr|icon-sub-clock)[^"]*"[^>]*>[\s]*(\d{1,3})/gi,
-    // Data attribute or title
-    /data-minute="(\d{1,3})"/gi,
-  ];
-
-  for (const pattern of patterns) {
-    const matches = [...html.matchAll(pattern)];
-    if (matches.length > 0) {
-      for (const m of matches) {
-        const min = parseInt(m[1]);
-        if (min >= 1 && min <= 120) {
-          minutes.push(m[1]);
-        }
-      }
-      if (minutes.length > 0) break;
-    }
-  }
-
-  return minutes;
-}
+// No html minute extraction needed anymore
 
 function extractSection(markdown: string, startHeader: string, endHeader: string): string {
   const startIdx = markdown.indexOf(startHeader);
