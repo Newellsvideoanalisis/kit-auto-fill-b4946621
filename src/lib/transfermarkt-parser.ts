@@ -6,11 +6,19 @@ export function parseTransfermarktMarkdown(markdown: string, html?: string): Par
     substitutions: [],
   };
 
-  // Extract teams from title
-  const titleMatch = markdown.match(/^# (.+?) - (.+)$/m);
+  // Extract teams from title or Startseite links
+  const titleMatch = markdown.match(/^# (.+?) - (.+)$/m) || markdown.match(/Title:\s*(.+?)\s*-\s*(.+?)(?:,|\s+-)/i);
   if (titleMatch) {
     result.homeTeam = titleMatch[1].trim();
     result.awayTeam = titleMatch[2].trim();
+  } else {
+    // Fallback: The first two distinct team links in the header
+    const vereinMatches = [...markdown.matchAll(/\[([^\]]+)\]\([^)]*startseite\/verein\/\d+[^)]*\)/g)];
+    if (vereinMatches.length >= 2) {
+      result.homeTeam = vereinMatches[0][1].trim();
+      const awayMatch = vereinMatches.find(m => m[1].trim() !== result.homeTeam);
+      if (awayMatch) result.awayTeam = awayMatch[1].trim();
+    }
   }
 
   // Extract team badges from markdown - look for wappen images near team names
