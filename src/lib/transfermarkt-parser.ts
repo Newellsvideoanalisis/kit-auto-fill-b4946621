@@ -226,12 +226,12 @@ function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[]
   let startersFound = 0;
   while ((match = spielerLinkPattern.exec(startersSection)) !== null) {
     const name = match[1].trim();
-    if (name && !players.some(p => p.name === name)) {
+    // Unique check per team
+    if (name && !players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
       players.push({
         id: crypto.randomUUID(),
         number: "",
         name,
-        // If there's no visible "Banquillo", the string is a flat list, restrict starters to 11
         isStarter: benchIdx > -1 ? true : (startersFound < 11),
         team,
         events: [],
@@ -251,12 +251,11 @@ function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[]
   spielerLinkPattern.lastIndex = 0;
   while ((match = spielerLinkPattern.exec(benchSection)) !== null) {
     const name = match[1].trim();
-    if (name && !players.some(p => p.name === name)) {
+    if (name && !players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
       players.push({
         id: crypto.randomUUID(),
         number: "",
         name,
-        // If we found NO starters above, treat the first 11 found here as starters!
         isStarter: isFallbackToFirst11 && players.length < 11 ? true : false,
         team,
         events: [],
@@ -335,8 +334,8 @@ function parseSubstitutions(
   const subsSection = extractSection(markdown, "## Cambios", "## Amonestaciones");
   if (!subsSection) return subs;
 
-  // Pattern: optional minute before two consecutive profiling links
-  const subPattern = /(?:(?:^|\n|\||\*\*)\s*(\d{1,3})['′]?[^\w\[\]]*)?\[([^\]]+)\]\([^)]*profil\/spieler[^)]*\)\s*\[([^\]]+)\]\([^)]*profil\/spieler[^)]*\)/gi;
+  // Pattern: optional minute before two consecutive profiling/performance links
+  const subPattern = /(?:(?:^|\n|\||\*\*)\s*(\d{1,3})['′]?[^\w\[\]]*)?\[([^\]]+)\]\([^)]*(?:profil\/spieler|leistungsdatendetails\/spieler)[^)]*\)\s*\[([^\]]+)\]\([^)]*(?:profil\/spieler|leistungsdatendetails\/spieler)[^)]*\)/gi;
   let match;
 
   while ((match = subPattern.exec(subsSection)) !== null) {
