@@ -120,8 +120,9 @@ function normalizeFormation(f: string): string {
 }
 
 function extractTeamSection(markdown: string, teamIndex: number): string {
-  const benchIdxs = [...markdown.matchAll(/Banquillo/gi)].map(m => m.index!);
-  const coachIdxs = [...markdown.matchAll(/Entrenador/gi)].map(m => m.index!);
+  // Use stricter patterns for section headers to avoid matching nav bars
+  const benchIdxs = [...markdown.matchAll(/(?:\n|^)[#\s]*Banquillo/gi)].map(m => m.index!);
+  const coachIdxs = [...markdown.matchAll(/(?:\n|^)[#\s]*Entrenador/gi)].map(m => m.index!);
 
   if (benchIdxs.length >= 2) {
     if (teamIndex === 0) {
@@ -139,7 +140,7 @@ function extractTeamSection(markdown: string, teamIndex: number): string {
       } else {
         startOfAway = benchIdxs[0] + (benchIdxs[1] - benchIdxs[0]) / 2;
       }
-      let endOfAway = markdown.indexOf("## Goles");
+      let endOfAway = markdown.search(/(?:\n|^)[#\s]*Goles/i);
       if (endOfAway === -1) endOfAway = markdown.length;
       return markdown.substring(startOfAway, endOfAway);
     }
@@ -149,36 +150,53 @@ function extractTeamSection(markdown: string, teamIndex: number): string {
   const formationIdx: number[] = [];
   let searchFrom = 0;
   while (true) {
-    const idx = markdown.indexOf("Formación inicial:", searchFrom);
-    if (idx === -1) break;
-    formationIdx.push(idx);
-    searchFrom = idx + 1;
+    const idx = markdown.search(/(?:\n|^)[#\s]*Formaci[oó]n inicial/i);
+    if (idx === -1) {
+      const altIdx = markdown.indexOf("Formación inicial:", searchFrom);
+      if (altIdx === -1) break;
+      formationIdx.push(altIdx);
+      searchFrom = altIdx + 1;
+    } else {
+      formationIdx.push(idx + searchFrom);
+      searchFrom += idx + 10;
+      const nextMatch = markdown.substring(searchFrom).search(/(?:\n|^)[#\s]*Formaci[oó]n inicial/i);
+      if(nextMatch !== -1) {
+          formationIdx.push(nextMatch + searchFrom);
+          break;
+      } else {
+          break;
+      }
+    }
   }
 
-  if (formationIdx.length <= teamIndex) return "";
+  if (formationIdx.length <= teamIndex) return markdown;
 
   const start = formationIdx[teamIndex];
   const end = teamIndex + 1 < formationIdx.length
     ? formationIdx[teamIndex + 1]
-    : markdown.indexOf("## Goles", start) || markdown.length;
+    : markdown.search(/(?:\n|^)[#\s]*Goles/i) || markdown.length;
 
-  return markdown.substring(start, end);
+  return markdown.substring(start, end === -1 ? markdown.length : end);
 }
 
 function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[] {
   const players: MatchPlayer[] = [];
   if (!section) return players;
 
-  const benchIdx = section.indexOf("Banquillo");
+  // Stricter bench separator
+  let benchIdx = section.search(/(?:\n|^)[#\s]*Banquillo/i);
+  if (benchIdx === -1) benchIdx = section.indexOf("Banquillo");
+  
   const startersSection = benchIdx > -1 ? section.substring(0, benchIdx) : section;
   const benchSection = benchIdx > -1 ? section.substring(benchIdx) : "";
 
-  // Parse Starters robusto por URL
   const spielerLinkPattern = /\[([^\]]+)\]\([^)]*spieler[^)]*\)/g;
   let match;
+  
+  // Extract Starters First
   while ((match = spielerLinkPattern.exec(startersSection)) !== null) {
     const name = match[1].trim();
-    if (name) {
+    if (name && !players.some(p => p.name === name)) {
       players.push({
         id: crypto.randomUUID(),
         number: "",
@@ -190,24 +208,32 @@ function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[]
     }
   }
 
+  // If we couldn't find any starters but found bench players, maybe the layout flipped or missed Banquillo.
+  // We'll enforce the "first 11 are starters" rule if startersSection yielded nothing.
+  let isFallbackToFirst11 = false;
+  if (players.length === 0) {
+      isFallbackToFirst11 = true;
+  }
+
   // Parse Bench robusto
   spielerLinkPattern.lastIndex = 0;
   while ((match = spielerLinkPattern.exec(benchSection)) !== null) {
     const name = match[1].trim();
-    if (name) {
+    if (name && !players.some(p => p.name === name)) {
       players.push({
         id: crypto.randomUUID(),
         number: "",
         name,
-        isStarter: false,
+        // If we found NO starters above, treat the first 11 found here as starters!
+        isStarter: isFallbackToFirst11 && players.length < 11 ? true : false,
         team,
         events: [],
       });
     }
   }
 
-  // Find numbers
-  const numberPattern = /(?:\|\s*(\d+)\s*\|\s*|^\s*(\d+)\s*\n\s*|(\d+)\s+)\[([^\]]+)\]/gm;
+  // Find numbers using table format or list format
+  const numberPattern = /(?:\|\s*(\d+)\s*\|\s*|^\s*(\d+)\s*\n\s*|(?<=^|\s)(\d+)\s+)\[([^\]]+)\]/gm;
   while ((match = numberPattern.exec(section)) !== null) {
     const num = match[1] || match[2] || match[3];
     const name = match[4].trim();
