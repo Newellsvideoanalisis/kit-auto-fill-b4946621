@@ -190,7 +190,7 @@ function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[]
   const startersSection = benchIdx > -1 ? section.substring(0, benchIdx) : section;
   const benchSection = benchIdx > -1 ? section.substring(benchIdx) : "";
 
-  const spielerLinkPattern = /\[([^\]]+)\]\([^)]*spieler[^)]*\)/g;
+  const spielerLinkPattern = /\[([^\]]+)\]\([^)]*profil\/spieler\/\d+[^)]*\)/g;
   let match;
   
   // Extract Starters First
