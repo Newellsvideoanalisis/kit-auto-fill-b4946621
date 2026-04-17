@@ -157,14 +157,14 @@ function escapeRegex(string: string) {
 
 function extractTeamSection(markdown: string, teamIndex: number, homeTeam?: string, awayTeam?: string): string {
   // Use stricter patterns for section headers to avoid matching nav bars
-  const benchIdxs = [...markdown.matchAll(/(?:\n|^)[#\s]*Banquillo/gi)].map(m => m.index!);
-  const coachIdxs = [...markdown.matchAll(/(?:\n|^)[#\s]*Entrenador/gi)].map(m => m.index!);
+  const benchIdxs = [...markdown.matchAll(/(?:\n|^)[#\s|]*Banquillo/gi)].map(m => m.index!);
+  const coachIdxs = [...markdown.matchAll(/(?:\n|^)[#\s|]*Entrenador/gi)].map(m => m.index!);
 
   if (benchIdxs.length >= 2) {
     if (teamIndex === 0) {
       let endOfHome = markdown.length;
       if (coachIdxs.length >= 1 && coachIdxs[0] > benchIdxs[0] && coachIdxs[0] < benchIdxs[1]) {
-        endOfHome = coachIdxs[0] + 100;
+        endOfHome = coachIdxs[0] + 300;
       } else {
         endOfHome = benchIdxs[0] + (benchIdxs[1] - benchIdxs[0]) / 2;
       }
@@ -172,11 +172,11 @@ function extractTeamSection(markdown: string, teamIndex: number, homeTeam?: stri
     } else {
       let startOfAway = 0;
       if (coachIdxs.length >= 1 && coachIdxs[0] > benchIdxs[0] && coachIdxs[0] < benchIdxs[1]) {
-        startOfAway = coachIdxs[0] + 100;
+        startOfAway = coachIdxs[0] + 300;
       } else {
         startOfAway = benchIdxs[0] + (benchIdxs[1] - benchIdxs[0]) / 2;
       }
-      let endOfAway = markdown.search(/(?:\n|^)[#\s]*Goles/i);
+      let endOfAway = markdown.search(/(?:\n|^)[#\s|]*Goles/i);
       if (endOfAway === -1) endOfAway = markdown.length;
       return markdown.substring(startOfAway, endOfAway);
     }
@@ -190,6 +190,8 @@ function extractTeamSection(markdown: string, teamIndex: number, homeTeam?: stri
        const firstPlayerIdx = markdown.search(/profil\/spieler\/\d+/);
        let splitIdx = awayIdxs.find(idx => idx > (firstPlayerIdx + 50));
        if (!splitIdx) splitIdx = awayIdxs.length > 1 ? awayIdxs[1] : awayIdxs[0];
+       
+       console.log("extractTeamSection DEBUG:", { teamIndex, firstPlayerIdx, awayIdxs, splitIdx });
        
        if (teamIndex === 0) {
            return markdown.substring(0, splitIdx);
