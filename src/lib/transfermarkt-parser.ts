@@ -94,8 +94,8 @@ export function parseTransfermarktMarkdown(markdown: string, html?: string): Par
   }
 
   // Parse players
-  const homeSection = extractTeamSection(markdown, 0);
-  const awaySection = extractTeamSection(markdown, 1);
+  const homeSection = extractTeamSection(markdown, 0, result.homeTeam, result.awayTeam);
+  const awaySection = extractTeamSection(markdown, 1, result.homeTeam, result.awayTeam);
 
   const homePlayers = parseTeamPlayers(homeSection, "home");
   const awayPlayers = parseTeamPlayers(awaySection, "away");
@@ -119,7 +119,11 @@ function normalizeFormation(f: string): string {
   return clean || "4-3-3";
 }
 
-function extractTeamSection(markdown: string, teamIndex: number): string {
+function escapeRegex(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractTeamSection(markdown: string, teamIndex: number, homeTeam?: string, awayTeam?: string): string {
   // Use stricter patterns for section headers to avoid matching nav bars
   const benchIdxs = [...markdown.matchAll(/(?:\n|^)[#\s]*Banquillo/gi)].map(m => m.index!);
   const coachIdxs = [...markdown.matchAll(/(?:\n|^)[#\s]*Entrenador/gi)].map(m => m.index!);
@@ -146,37 +150,28 @@ function extractTeamSection(markdown: string, teamIndex: number): string {
     }
   }
 
-  // Fallback
-  const formationIdx: number[] = [];
-  let searchFrom = 0;
-  while (true) {
-    const idx = markdown.search(/(?:\n|^)[#\s]*Formaci[oó]n inicial/i);
-    if (idx === -1) {
-      const altIdx = markdown.indexOf("Formación inicial:", searchFrom);
-      if (altIdx === -1) break;
-      formationIdx.push(altIdx);
-      searchFrom = altIdx + 1;
-    } else {
-      formationIdx.push(idx + searchFrom);
-      searchFrom += idx + 10;
-      const nextMatch = markdown.substring(searchFrom).search(/(?:\n|^)[#\s]*Formaci[oó]n inicial/i);
-      if(nextMatch !== -1) {
-          formationIdx.push(nextMatch + searchFrom);
-          break;
-      } else {
-          break;
-      }
+  // Fallback for flat lists: split by Away Team name if available
+  if (awayTeam) {
+    const awayRegex = new RegExp(`\\[${escapeRegex(awayTeam)}\\]`, "gi");
+    const awayIdxs = [...markdown.matchAll(awayRegex)].map(m => m.index!);
+    if (awayIdxs.length > 0) {
+       // The lineup section usually contains the team name. If it appears multiple times, guess the start of the lineup
+       // The first index is likely the match title. The second is the actual lineup list.
+       const splitIdx = awayIdxs.length > 1 ? awayIdxs[1] : awayIdxs[0];
+       
+       if (teamIndex === 0) {
+           return markdown.substring(0, splitIdx);
+       } else {
+           let endOfAway = markdown.search(/(?:\n|^)[#\s]*Goles/i);
+           if (endOfAway === -1) endOfAway = markdown.length;
+           return markdown.substring(splitIdx, endOfAway);
+       }
     }
   }
 
-  if (formationIdx.length <= teamIndex) return markdown;
-
-  const start = formationIdx[teamIndex];
-  const end = teamIndex + 1 < formationIdx.length
-    ? formationIdx[teamIndex + 1]
-    : markdown.search(/(?:\n|^)[#\s]*Goles/i) || markdown.length;
-
-  return markdown.substring(start, end === -1 ? markdown.length : end);
+  // Complete fallback: half string
+  if (teamIndex === 0) return markdown.substring(0, markdown.length / 2);
+  return markdown.substring(markdown.length / 2);
 }
 
 function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[] {
@@ -194,6 +189,7 @@ function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[]
   let match;
   
   // Extract Starters First
+  let startersFound = 0;
   while ((match = spielerLinkPattern.exec(startersSection)) !== null) {
     const name = match[1].trim();
     if (name && !players.some(p => p.name === name)) {
@@ -201,10 +197,12 @@ function parseTeamPlayers(section: string, team: "home" | "away"): MatchPlayer[]
         id: crypto.randomUUID(),
         number: "",
         name,
-        isStarter: true,
+        // If there's no visible "Banquillo", the string is a flat list, restrict starters to 11
+        isStarter: benchIdx > -1 ? true : (startersFound < 11),
         team,
         events: [],
       });
+      startersFound++;
     }
   }
 
