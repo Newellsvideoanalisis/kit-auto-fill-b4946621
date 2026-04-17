@@ -42,13 +42,14 @@ const TransfermarktImporter: React.FC<Props> = ({ onImport }) => {
 
       const markdown = response.data?.markdown || response.markdown;
       const html = response.data?.html || response.html;
+      const title = response.data?.metadata?.title || response.metadata?.title || "";
       
       if (!markdown) {
         toast.error("No se pudo extraer contenido de la página");
         return;
       }
 
-      const parsed = parseTransfermarktMarkdown(markdown, html);
+      const parsed = parseTransfermarktMarkdown(markdown, html, title);
 
       if (!parsed.homeTeam && !parsed.awayTeam) {
         toast.error("No se pudieron identificar los equipos. Verificá la URL.");

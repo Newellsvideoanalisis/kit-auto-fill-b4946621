@@ -1,24 +1,40 @@
 import { MatchData, MatchPlayer, MatchEvent, Substitution } from "@/types/match";
 
-export function parseTransfermarktMarkdown(markdown: string, html?: string): Partial<MatchData> {
+export function parseTransfermarktMarkdown(markdown: string, html?: string, pageTitle?: string): Partial<MatchData> {
   const result: Partial<MatchData> = {
     players: [],
     substitutions: [],
   };
 
-  // Extract teams from title or Startseite links
-  const titleMatch = markdown.match(/^# (.+?) - (.+)$/m) || markdown.match(/Title:\s*(.+?)\s*-\s*(.+?)(?:,|\s+-)/i);
-  if (titleMatch) {
-    result.homeTeam = titleMatch[1].trim();
-    result.awayTeam = titleMatch[2].trim();
-  } else {
-    // Fallback: The first two distinct team links in the header
-    const vereinMatches = [...markdown.matchAll(/\[([^\]]+)\]\([^)]*startseite\/verein\/\d+[^)]*\)/g)];
-    if (vereinMatches.length >= 2) {
-      result.homeTeam = vereinMatches[0][1].trim();
-      const awayMatch = vereinMatches.find(m => m[1].trim() !== result.homeTeam);
-      if (awayMatch) result.awayTeam = awayMatch[1].trim();
+  // Extract teams from explicit Page Title metadata, fallback to Header or Startseite links
+  let extractedHome, extractedAway;
+
+  if (pageTitle) {
+      const pMatch = pageTitle.match(/(.+?)\s*-\s*(.+?)(?:,|\s+-)/);
+      if (pMatch) {
+          extractedHome = pMatch[1].trim();
+          extractedAway = pMatch[2].trim();
+      }
+  }
+
+  if (!extractedHome) {
+    const titleMatch = markdown.match(/^# (.+?) - (.+)$/m) || markdown.match(/Title:\s*(.+?)\s*-\s*(.+?)(?:,|\s+-)/i);
+    if (titleMatch) {
+      extractedHome = titleMatch[1].trim();
+      extractedAway = titleMatch[2].trim();
+    } else {
+      const vereinMatches = [...markdown.matchAll(/\[([^\]]+)\]\([^)]*startseite\/verein\/\d+[^)]*\)/g)];
+      if (vereinMatches.length >= 2) {
+        extractedHome = vereinMatches[0][1].trim();
+        const awayMatch = vereinMatches.find(m => m[1].trim() !== extractedHome);
+        if (awayMatch) extractedAway = awayMatch[1].trim();
+      }
     }
+  }
+
+  if (extractedHome && extractedAway) {
+     result.homeTeam = extractedHome;
+     result.awayTeam = extractedAway;
   }
 
   // Extract team badges from markdown - look for wappen images near team names
