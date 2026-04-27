@@ -33,45 +33,107 @@ const POSITIONS = [
 ];
 const FEET = ["Derecho", "Izquierdo", "Ambidiestro"];
 
+const parseCsvLine = (line: string): string[] => {
+  const cols: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (ch === "," && !inQuotes) {
+      cols.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  cols.push(current.trim());
+  return cols.map(c => c.replace(/^"|"$/g, ""));
+};
+
 const parseTransfermarktCSV = (text: string): Player[] => {
   const lines = text.split("\n").filter((l) => l.trim());
   if (lines.length < 2) return [];
 
-  // Skip header row
+  const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase());
   const dataLines = lines.slice(1);
-  return dataLines.map((line) => {
-    // Parse CSV with quoted fields
-    const cols: string[] = [];
-    let current = "";
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-      } else if (ch === "," && !inQuotes) {
-        cols.push(current.trim());
-        current = "";
-      } else {
-        current += ch;
-      }
+
+  // Initialize indices
+  let numIdx = -1;
+  let nameIdx = -1;
+  let posIdx = -1;
+  let birthIdx = -1;
+  let heightIdx = -1;
+  let footIdx = -1;
+
+  // 1. Try to find by header names
+  numIdx = headers.findIndex(h => h === "#" || h === "nº" || h === "number");
+  nameIdx = headers.findIndex(h => h.includes("jugador") || h.includes("player") || h.includes("nombre"));
+  posIdx = headers.findIndex(h => h.includes("pos") || h.includes("posición") || h.includes("position"));
+  birthIdx = headers.findIndex(h => h.includes("nacimiento") || h.includes("f. nac.") || h.includes("fecha") || h.includes("age") || h === "zentriert");
+  heightIdx = headers.findIndex(h => h.includes("altura") || h.includes("height") || h.includes("talla") || h === "zentriert 2");
+  footIdx = headers.findIndex(h => h.includes("pie") || h.includes("foot") || h === "zentriert 3");
+
+  // 2. Data analysis heuristics if needed or to verify
+  if (dataLines.length > 0) {
+    const firstRowData = parseCsvLine(dataLines[0]);
+    
+    // Find Birth Date: contains date format like 01/01/1990
+    if (birthIdx === -1 || !/\d{2}\/\d{2}\/\d{4}/.test(firstRowData[birthIdx])) {
+      const found = firstRowData.findIndex(c => /\d{2}\/\d{2}\/\d{4}/.test(c));
+      if (found !== -1) birthIdx = found;
     }
-    cols.push(current.trim());
 
-    // Extract birth date - format "01/09/1998 (27)" → "01/09/1998 (27)"
-    const rawDate = cols[5] || "";
-    // Extract height - format "1,84m" → "1,84m"  
-    const rawHeight = cols[7] || "";
-    // Map foot: Izquierdo stays, Derecho stays
-    const rawFoot = cols[8] || "";
+    // Find Height: looks like "1,80 m" or "1.80 m"
+    if (heightIdx === -1 || !/\d[.,]\d{2}\s*m/.test(firstRowData[heightIdx])) {
+      const found = firstRowData.findIndex(c => /\d[.,]\d{2}\s*m/.test(c));
+      if (found !== -1) heightIdx = found;
+    }
 
+    // Find Foot: "Derecho", "Izquierdo", "Ambidiestro"
+    const footValues = ["derecho", "izquierdo", "ambidiestro", "right", "left", "both"];
+    if (footIdx === -1 || !footValues.includes(firstRowData[footIdx].toLowerCase())) {
+      const found = firstRowData.findIndex(c => footValues.includes(c.toLowerCase()));
+      if (found !== -1) footIdx = found;
+    }
+
+    // Find Number: single or double digit
+    if (numIdx === -1) {
+      const found = firstRowData.findIndex(c => /^\d{1,2}$/.test(c));
+      if (found !== -1) numIdx = found;
+    }
+
+    // Find Name: string longer than 3 chars, not a URL, not a date, not a digit
+    if (nameIdx === -1) {
+      const found = firstRowData.findIndex((c, i) => 
+        i < 5 && 
+        c.length > 3 && 
+        !c.includes("http") && 
+        !c.includes("/") && 
+        isNaN(Number(c))
+      );
+      if (found !== -1) nameIdx = found;
+    }
+
+    // Find Position
+    const posKeywords = ["portero", "defensa", "lateral", "pivote", "mediocentro", "extremo", "delantero", "mediapunta", "goalkeeper", "defender", "midfield", "striker"];
+    if (posIdx === -1) {
+      const found = firstRowData.findIndex(c => posKeywords.some(k => c.toLowerCase().includes(k)));
+      if (found !== -1) posIdx = found;
+    }
+  }
+
+  return dataLines.map((line) => {
+    const cols = parseCsvLine(line);
     return {
       id: crypto.randomUUID(),
-      number: cols[0] || "",
-      name: cols[2] || "",
-      birthDate: rawDate,
-      height: rawHeight,
-      position: cols[4] || "",
-      foot: rawFoot,
+      number: numIdx !== -1 ? cols[numIdx] || "" : "",
+      name: nameIdx !== -1 ? cols[nameIdx] || "" : "",
+      birthDate: birthIdx !== -1 ? cols[birthIdx] || "" : "",
+      height: heightIdx !== -1 ? cols[heightIdx] || "" : "",
+      position: posIdx !== -1 ? cols[posIdx] || "" : "",
+      foot: footIdx !== -1 ? cols[footIdx] || "" : "",
     };
   });
 };
