@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Player } from "@/types/player";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Upload } from "lucide-react";
+import { toast } from "sonner";
 
 interface PlayerTableProps {
   players: Player[];
@@ -33,15 +34,21 @@ const POSITIONS = [
 ];
 const FEET = ["Derecho", "Izquierdo", "Ambidiestro"];
 
-const parseCsvLine = (line: string): string[] => {
+const parseCsvLine = (line: string, sep: string = ","): string[] => {
   const cols: string[] = [];
   let current = "";
   let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
     if (ch === '"') {
-      inQuotes = !inQuotes;
-    } else if (ch === "," && !inQuotes) {
+      // Handle escaped quotes ""
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === sep && !inQuotes) {
       cols.push(current.trim());
       current = "";
     } else {
@@ -49,14 +56,32 @@ const parseCsvLine = (line: string): string[] => {
     }
   }
   cols.push(current.trim());
-  return cols.map(c => c.replace(/^"|"$/g, ""));
+  // Remove wrapping quotes and unescape
+  return cols.map(c => {
+    let val = c.trim();
+    if (val.startsWith('"') && val.endsWith('"')) {
+      val = val.substring(1, val.length - 1);
+    }
+    return val.replace(/""/g, '"');
+  });
 };
 
 const parseTransfermarktCSV = (text: string): Player[] => {
-  const lines = text.split("\n").filter((l) => l.trim());
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
 
-  const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase());
+  // 1. Detect separator: count commas vs semicolons in the first few lines
+  let sep = ",";
+  const sampleLines = lines.slice(0, 5);
+  let commaTotal = 0;
+  let semiTotal = 0;
+  sampleLines.forEach(l => {
+    commaTotal += (l.match(/,/g) || []).length;
+    semiTotal += (l.match(/;/g) || []).length;
+  });
+  if (semiTotal > 0 && semiTotal >= commaTotal) sep = ";";
+
+  const headers = parseCsvLine(lines[0], sep).map(h => h.toLowerCase());
   const dataLines = lines.slice(1);
 
   // Initialize indices
@@ -67,65 +92,69 @@ const parseTransfermarktCSV = (text: string): Player[] => {
   let heightIdx = -1;
   let footIdx = -1;
 
-  // 1. Try to find by header names
-  numIdx = headers.findIndex(h => h === "#" || h === "nº" || h === "number");
+  // 1. Initial attempt by header names
+  numIdx = headers.findIndex(h => h === "#" || h === "nº" || h === "number" || h === "no." || h === "n");
   nameIdx = headers.findIndex(h => h.includes("jugador") || h.includes("player") || h.includes("nombre"));
   posIdx = headers.findIndex(h => h.includes("pos") || h.includes("posición") || h.includes("position"));
-  birthIdx = headers.findIndex(h => h.includes("nacimiento") || h.includes("f. nac.") || h.includes("fecha") || h.includes("age") || h === "zentriert");
+  birthIdx = headers.findIndex(h => h.includes("nacimiento") || h.includes("f. nac.") || h.includes("fecha") || h.includes("age") || h === "zentriert" || h.includes("birth"));
   heightIdx = headers.findIndex(h => h.includes("altura") || h.includes("height") || h.includes("talla") || h === "zentriert 2");
   footIdx = headers.findIndex(h => h.includes("pie") || h.includes("foot") || h === "zentriert 3");
 
-  // 2. Data analysis heuristics if needed or to verify
+  // 2. Refine using data heuristics
   if (dataLines.length > 0) {
-    const firstRowData = parseCsvLine(dataLines[0]);
+    const firstRowData = parseCsvLine(dataLines[0], sep);
     
-    // Find Birth Date: contains date format like 01/01/1990
-    if (birthIdx === -1 || !/\d{2}\/\d{2}\/\d{4}/.test(firstRowData[birthIdx])) {
-      const found = firstRowData.findIndex(c => /\d{2}\/\d{2}\/\d{4}/.test(c));
+    // BIRTH DATE: DD/MM/YYYY, Month DD, YYYY, or (age)
+    const birthRegex = /\d{2}\/\d{2}\/\d{4}|[A-Z][a-z]{2}\s\d{1,2},\s\d{4}|\d{2}\.\d{2}\.\d{4}|\(\d{1,2}\)/;
+    if (birthIdx === -1 || (firstRowData[birthIdx] && !birthRegex.test(firstRowData[birthIdx]))) {
+      const found = firstRowData.findIndex(c => birthRegex.test(c));
       if (found !== -1) birthIdx = found;
     }
 
-    // Find Height: looks like "1,80 m" or "1.80 m"
-    if (heightIdx === -1 || !/\d[.,]\d{2}\s*m/.test(firstRowData[heightIdx])) {
-      const found = firstRowData.findIndex(c => /\d[.,]\d{2}\s*m/.test(c));
+    // HEIGHT: "1,80 m" or "1.80 m"
+    const heightRegex = /^\d[.,]\d{2}\s*m$/;
+    if (heightIdx === -1 || (firstRowData[heightIdx] && !heightRegex.test(firstRowData[heightIdx]))) {
+      const found = firstRowData.findIndex(c => heightRegex.test(c));
       if (found !== -1) heightIdx = found;
     }
 
-    // Find Foot: "Derecho", "Izquierdo", "Ambidiestro"
-    const footValues = ["derecho", "izquierdo", "ambidiestro", "right", "left", "both"];
-    if (footIdx === -1 || !footValues.includes(firstRowData[footIdx].toLowerCase())) {
+    // FOOT: Right/Left/Both variants
+    const footValues = ["derecho", "izquierdo", "ambidiestro", "right", "left", "both", "r", "l"];
+    if (footIdx === -1 || (firstRowData[footIdx] && !footValues.includes(firstRowData[footIdx]?.toLowerCase()))) {
       const found = firstRowData.findIndex(c => footValues.includes(c.toLowerCase()));
       if (found !== -1) footIdx = found;
     }
 
-    // Find Number: single or double digit
+    // NUMBER: 1-3 digits
     if (numIdx === -1) {
-      const found = firstRowData.findIndex(c => /^\d{1,2}$/.test(c));
+      const found = firstRowData.findIndex(c => /^\d{1,3}$/.test(c));
       if (found !== -1) numIdx = found;
     }
 
-    // Find Name: string longer than 3 chars, not a URL, not a date, not a digit
+    // POSITION: List of keywords
+    const posKeywords = ["portero", "defensa", "lateral", "pivote", "mediocentro", "extremo", "delantero", "mediapunta", "goalkeeper", "defender", "midfield", "striker", "goalk", "defen"];
+    if (posIdx === -1 || (firstRowData[posIdx] && !posKeywords.some(k => firstRowData[posIdx].toLowerCase().includes(k)))) {
+      const found = firstRowData.findIndex(c => posKeywords.some(k => c.toLowerCase().includes(k)));
+      if (found !== -1) posIdx = found;
+    }
+
+    // NAME: Heuristic for identifying the name column by exclusion
     if (nameIdx === -1) {
+      const alreadyAssigned = [numIdx, posIdx, birthIdx, heightIdx, footIdx];
       const found = firstRowData.findIndex((c, i) => 
-        i < 5 && 
+        !alreadyAssigned.includes(i) &&
         c.length > 3 && 
         !c.includes("http") && 
         !c.includes("/") && 
-        isNaN(Number(c))
+        isNaN(Number(c)) &&
+        !posKeywords.some(k => c.toLowerCase().includes(k))
       );
       if (found !== -1) nameIdx = found;
-    }
-
-    // Find Position
-    const posKeywords = ["portero", "defensa", "lateral", "pivote", "mediocentro", "extremo", "delantero", "mediapunta", "goalkeeper", "defender", "midfield", "striker"];
-    if (posIdx === -1) {
-      const found = firstRowData.findIndex(c => posKeywords.some(k => c.toLowerCase().includes(k)));
-      if (found !== -1) posIdx = found;
     }
   }
 
   return dataLines.map((line) => {
-    const cols = parseCsvLine(line);
+    const cols = parseCsvLine(line, sep);
     return {
       id: crypto.randomUUID(),
       number: numIdx !== -1 ? cols[numIdx] || "" : "",
@@ -137,6 +166,7 @@ const parseTransfermarktCSV = (text: string): Player[] => {
     };
   });
 };
+
 
 const PlayerTable: React.FC<PlayerTableProps> = ({ players, onPlayersChange }) => {
   const addPlayer = () => {
@@ -163,6 +193,9 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ players, onPlayersChange }) =
       const newPlayers = parseTransfermarktCSV(text);
       if (newPlayers.length > 0) {
         onPlayersChange([...players, ...newPlayers]);
+        toast.success(`Se importaron ${newPlayers.length} jugadores correctamente`);
+      } else {
+        toast.error("No se encontraron jugadores en el archivo CSV. Verificá el formato.");
       }
     };
     reader.readAsText(file, "utf-8");
